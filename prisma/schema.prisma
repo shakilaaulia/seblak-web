@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+}
+
+enum OrderStatus {
+  PENDING
+  COOKING
+  READY
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String?
+  phoneNumber String   @unique
+  role        Role
+  createdAt   DateTime @default(now())
+  orders      Order[]
+
+  @@index([phoneNumber])
+}
+
+model Topping {
+  id          Int       @id @default(autoincrement())
+  toppingName String
+  price       Decimal   @db.Decimal(10, 2)
+  isReady     Boolean   @default(true)
+
+  orderDetails OrderDetail[]
+
+  @@index([toppingName])
+}
+
+model Order {
+  id          Int          @id @default(autoincrement())
+  user        User         @relation(fields: [userId], references: [id])
+  userId      Int
+  queueNumber String       @unique
+  totalPrice  Decimal      @db.Decimal(10, 2)
+  spiceLevel  Int
+  soupType    String
+  status      OrderStatus  @default(PENDING)
+  createdAt   DateTime     @default(now())
+
+  orderDetails OrderDetail[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderDetail {
+  id        Int     @id @default(autoincrement())
+  order     Order   @relation(fields: [orderId], references: [id])
+  orderId   Int
+  topping   Topping @relation(fields: [toppingId], references: [id])
+  toppingId Int
+  quantity  Int
+
+  @@index([orderId])
+  @@index([toppingId])
+}
