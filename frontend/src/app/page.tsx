@@ -1,101 +1,207 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import logo from "../../assets/Logo 2.png";
 
-export default function LoginPage() {
+interface TrackOrder {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  totalPrice: number;
+  status: string;
+  createdAt: string;
+}
+
+const ONGOING_STATUSES = ['PENDING', 'PROCESSING', 'READY'];
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Menunggu Verifikasi',
+  PROCESSING: 'Sedang Dimasak',
+  READY: 'Siap Diambil',
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  PENDING: 'text-red-600 bg-red-50',
+  PROCESSING: 'text-amber-600 bg-amber-50',
+  READY: 'text-emerald-600 bg-emerald-50',
+};
+
+export default function HomePage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
+  const [showTrack, setShowTrack] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [tracking, setTracking] = useState(false);
+  const [trackError, setTrackError] = useState("");
+  const [searchResults, setSearchResults] = useState<TrackOrder[] | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone) return;
+    if (!searchQuery.trim()) return;
 
-    // Redirect to seller dashboard if phone ends with 99, otherwise to customer menu
-    if (phone.endsWith("99")) {
-      router.push("/dashboard");
-    } else {
-      router.push("/menu");
+    setTracking(true);
+    setTrackError("");
+    setSearchResults(null);
+
+    try {
+      const res = await fetch(`/api/orders?search=${encodeURIComponent(searchQuery)}`);
+      if (res.ok) {
+        const orders = await res.json();
+        const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
+        if (ongoing.length === 0) {
+          setTrackError("Tidak ada pesanan aktif ditemukan. Periksa kembali nama atau nomor WhatsApp.");
+        } else {
+          setSearchResults(ongoing);
+        }
+      } else {
+        setTrackError("Gagal mencari pesanan. Coba lagi.");
+      }
+    } catch {
+      setTrackError("Gagal terhubung ke server");
+    } finally {
+      setTracking(false);
     }
   };
 
+  // Polling: auto-refresh search results every 5 seconds
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pollOrders = useRef(async () => {
+    if (!searchQuery.trim() || !showTrack) return;
+    try {
+      const res = await fetch(`/api/orders?search=${encodeURIComponent(searchQuery)}`);
+      if (res.ok) {
+        const orders = await res.json();
+        const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
+        setSearchResults(ongoing.length > 0 ? ongoing : null);
+        if (ongoing.length === 0) {
+          setTrackError("Semua pesanan sudah selesai.");
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        }
+      }
+    } catch {}
+  });
+
+  useEffect(() => {
+    if (showTrack && searchResults && searchResults.length > 0) {
+      pollRef.current = setInterval(() => pollOrders.current(), 5000);
+    }
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [showTrack, searchResults]);
+
   return (
     <div className="flex-1 flex flex-col justify-between items-center px-8 py-12 bg-gradient-to-b from-rose-50 via-white to-amber-50/50 min-h-screen">
-      {/* Top Spacer */}
       <div></div>
 
-      {/* Main Content */}
       <div className="w-full flex flex-col items-center text-center space-y-8 my-auto">
-        {/* Logo Brand */}
         <div className="flex flex-col items-center">
-          {/* Flame Icon Container */}
           <div className="flex items-center justify-center mb-2">
             <img src={logo.src} alt="Logo Seblak Mamah Zahwa" className="w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 object-contain" />
           </div>
         </div>
 
-        {/* Welcome Text */}
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-red-700 tracking-tight">
-            Selamat Datang
+            Seblak Mamah Zahwa
           </h1>
           <p className="text-sm text-gray-500 max-w-xs mx-auto">
-            Masukkan nomor WhatsApp kamu untuk mulai memesan.
+            Seblak, Makanan, dan Minuman kekinian dengan cita rasa khas rumahan.
           </p>
         </div>
 
-        {/* Input Form */}
-        <form onSubmit={handleLogin} className="w-full space-y-4">
-          <div className="flex items-center bg-white border border-rose-200 rounded-2xl px-4 py-3.5 shadow-sm focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500 transition-all">
-            {/* Country code / Flag */}
-            <div className="flex items-center space-x-2 pr-3 border-r border-gray-200">
-              <span className="text-lg">🇮🇩</span>
-              <span className="text-sm font-semibold text-gray-700">+62</span>
-            </div>
-            {/* Phone Input */}
-            <input
-              type="tel"
-              className="flex-1 pl-3 bg-transparent border-none outline-none text-gray-800 font-medium placeholder-gray-400 text-sm"
-              placeholder="812 3456 7890"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-              required
-            />
-          </div>
-
-          {/* Tips for Testing */}
-          <p className="text-[10px] text-gray-400 text-left px-1">
-            * Tips: Akhiri nomor dengan{" "}
-            <strong className="text-red-500">99</strong> untuk masuk ke
-            Dashboard Penjual, atau nomor lain untuk Menu Pembeli.
-          </p>
+        <div className="w-full space-y-4">
+          <button
+            onClick={() => router.push('/menu')}
+            className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-700/10 active:scale-[0.98] transition-all text-lg"
+          >
+            Mulai Pesan
+          </button>
 
           <button
-            type="submit"
-            className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-red-700/10 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
+            onClick={() => { setShowTrack(true); setSearchResults(null); setSearchQuery(""); setTrackError(""); }}
+            className="w-full bg-white hover:bg-gray-50 text-gray-600 font-semibold py-3 px-6 rounded-2xl border border-gray-200 active:scale-[0.98] transition-all text-sm"
           >
-            {/* Chat Icon */}
-            <svg
-              className="w-5 h-5 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>Masuk via WhatsApp</span>
+            Lacak Pesanan
           </button>
-        </form>
+        </div>
       </div>
 
-      {/* Footer / Terms */}
+      {/* Track Order Modal */}
+      {showTrack && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={() => setShowTrack(false)}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-black text-gray-900 text-center mb-1">Lacak Pesanan</h2>
+            <p className="text-xs text-gray-400 text-center mb-5">Masukkan nama atau nomor WhatsApp yang digunakan saat checkout</p>
+
+            <form onSubmit={handleTrackOrder} className="space-y-4">
+              <input
+                type="text"
+                className="w-full bg-gray-50 border border-transparent rounded-2xl px-4 py-3 text-sm font-semibold outline-none focus:bg-white focus:border-red-500 transition-all text-gray-700"
+                placeholder="Nama atau nomor WhatsApp"
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setSearchResults(null); setTrackError(""); }}
+                autoFocus
+              />
+
+              {trackError && (
+                <p className="text-xs font-bold text-red-600 text-center">{trackError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={tracking || !searchQuery.trim()}
+                className="w-full bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white font-bold py-3.5 px-6 rounded-2xl text-sm active:scale-[0.98] transition-all"
+              >
+                {tracking ? "Mencari..." : "Cari Pesanan"}
+              </button>
+            </form>
+
+            {/* Search Results */}
+            {searchResults && searchResults.length > 0 && (
+              <div className="mt-5 space-y-3 overflow-y-auto flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                    {searchResults.length} pesanan aktif
+                  </p>
+                </div>
+                {searchResults.map((order) => (
+                  <button
+                    key={order.id}
+                    onClick={() => { setShowTrack(false); router.push(`/order-status?id=${order.id}`); }}
+                    className="w-full text-left bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-2xl p-4 transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-black text-gray-900 text-sm">{order.orderNumber}</span>
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${STATUS_COLOR[order.status] || 'text-gray-500 bg-gray-100'}`}>
+                        {STATUS_LABEL[order.status] || order.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-500">{order.customerName}</span>
+                      <span className="text-xs font-black text-red-600">Rp {order.totalPrice.toLocaleString('id-ID')}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowTrack(false)}
+              className="w-full text-gray-400 font-semibold text-xs py-3 mt-4 hover:text-gray-600 transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-xs text-center">
         <p className="text-[11px] text-gray-400 leading-relaxed">
-          Dengan masuk, kamu menyetujui{" "}
+          Dengan memesan, kamu menyetujui{" "}
           <span className="text-red-600 font-semibold cursor-pointer hover:underline">
             Syarat & Ketentuan
           </span>{" "}

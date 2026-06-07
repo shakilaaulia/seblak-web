@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import logo1 from '../../../assets/Logo 1.png';
 
@@ -9,513 +9,824 @@ interface MenuItem {
   name: string;
   price: number;
   image: string;
-  emoji: string;
-  category: 'makanan' | 'minuman';
+  category: 'seblak' | 'makanan' | 'minuman';
+}
+
+interface ToppingSelection {
+  name: string;
+  quantity: number;
 }
 
 interface Customization {
-  spiciness: 'Original' | 'Pedas Sedikit' | 'Sedang' | 'Pedas';
-  texture: 'Kering' | 'Sedang' | 'Banjir';
-  soupType: 'Asin' | 'Manis' | 'Gurih';
-  toppings: {
-    [key: string]: number;
-  };
+  spiciness: '' | 'Original' | 'Pedas Sedikit' | 'Sedang' | 'Pedas';
+  soup: '' | 'Kering' | 'Sedang' | 'Banjir' | 'Gurih';
+  toppings: ToppingSelection[];
+  notes: string;
 }
 
-const PLACEHOLDER = (name: string) =>
-  `https://placehold.co/200x150/FEE2E2/991B1B?text=${encodeURIComponent(name)}`;
-const DRINK_PLACEHOLDER = (name: string) =>
-  `https://placehold.co/200x150/E0F2FE/075985?text=${encodeURIComponent(name)}`;
+interface CartItem {
+  id: string;
+  menuId: string;
+  name: string;
+  price: number;
+  basePrice: number;
+  quantity: number;
+  customization?: Customization;
+  image: string;
+}
 
-const FOOD_ITEMS: MenuItem[] = [
-  { id: 'm1', name: 'Cilok Goang', price: 10000, image: PLACEHOLDER('Cilok Goang'), emoji: '', category: 'makanan' },
-  { id: 'm2', name: 'Mie Ayam + Ceker', price: 12000, image: PLACEHOLDER('Mie Ayam Ceker'), emoji: '', category: 'makanan' },
-  { id: 'm3', name: 'Mie Bakso', price: 13000, image: PLACEHOLDER('Mie Bakso'), emoji: '', category: 'makanan' },
-  { id: 'm4', name: 'Karedok Basreng', price: 6000, image: PLACEHOLDER('Karedok Basreng'), emoji: '', category: 'makanan' },
-  { id: 'm5', name: 'Citul', price: 1000, image: PLACEHOLDER('Citul'), emoji: '', category: 'makanan' },
-  { id: 'm6', name: 'Cireng Kuah', price: 10000, image: PLACEHOLDER('Cireng Kuah'), emoji: '', category: 'makanan' },
-  { id: 'm7', name: 'Martabak Telor', price: 8000, image: PLACEHOLDER('Martabak Telor'), emoji: '', category: 'makanan' },
-];
-
-const DRINK_ITEMS: MenuItem[] = [
-  { id: 'd1', name: 'Pop Ice', price: 5000, image: DRINK_PLACEHOLDER('Pop Ice'), emoji: '', category: 'minuman' },
-  { id: 'd2', name: 'Teh Tarik', price: 6000, image: DRINK_PLACEHOLDER('Teh Tarik'), emoji: '', category: 'minuman' },
-  { id: 'd3', name: 'Creamy Latte', price: 6000, image: DRINK_PLACEHOLDER('Creamy Latte'), emoji: '', category: 'minuman' },
+const MENU_ITEMS: MenuItem[] = [
+  {
+    id: 'seblak-1',
+    name: 'Seblak Mamah Zahwa',
+    price: 0,
+    image: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=400&auto=format&fit=crop',
+    category: 'seblak'
+  },
+  {
+    id: 'm1',
+    name: 'Cilok Goang',
+    price: 10000,
+    image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=400&auto=format&fit=crop',
+    category: 'makanan'
+  },
+  {
+    id: 'm2',
+    name: 'Mie Bakso',
+    price: 13000,
+    image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=400&auto=format&fit=crop',
+    category: 'makanan'
+  },
+  {
+    id: 'm3',
+    name: 'Mie Jeletot',
+    price: 10000,
+    image: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?q=80&w=400&auto=format&fit=crop',
+    category: 'makanan'
+  },
+  {
+    id: 'd1',
+    name: 'Pop Ice',
+    price: 5000,
+    image: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=400&auto=format&fit=crop',
+    category: 'minuman'
+  },
+  {
+    id: 'd2',
+    name: 'Nutrisari',
+    price: 5000,
+    image: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?q=80&w=400&auto=format&fit=crop',
+    category: 'minuman'
+  },
+  {
+    id: 'd3',
+    name: 'Beng-beng Drink',
+    price: 6000,
+    image: 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?q=80&w=400&auto=format&fit=crop',
+    category: 'minuman'
+  }
 ];
 
 export default function MenuPage() {
   const router = useRouter();
-  
-  // Interactive client states
-  const [activeCategory, setActiveCategory] = useState<'all' | 'custom' | 'makanan' | 'minuman'>('all');
-  const [cartCount, setCartCount] = useState<number>(1); // Mock 1 item initially to match design cart badge
-  const [isCustomizing, setIsCustomizing] = useState<boolean>(false);
-  const [showToast, setShowToast] = useState<string | null>(null);
 
-  // Customization States
+  // Navigation states
+  const [activeTab, setActiveTab] = useState<'seblak' | 'makanan' | 'minuman'>('seblak');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Cart state sync with localStorage
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  // Modal states
+  const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
+  const [customQty, setCustomQty] = useState(1);
   const [customization, setCustomization] = useState<Customization>({
-    spiciness: 'Sedang',
-    texture: 'Sedang',
-    soupType: 'Gurih',
-    toppings: {
-      'Kerupuk': 1,
-      'Siomay': 2,
-      'Ceker Ayam': 0,
-      'Sosis': 0,
-    }
+    spiciness: '',
+    soup: '',
+    toppings: [],
+    notes: ''
   });
 
-  const TOPPING_PRICES: { [key: string]: number } = {
-    'Kerupuk': 2000,
-    'Siomay': 3000,
-    'Ceker Ayam': 5000,
-    'Sosis': 4000,
-  };
+  // Editing existing cart item customization state
+  const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
 
-  const calculateCustomPrice = () => {
-    let basePrice = 12000; // Base Seblak Price
-    let toppingCost = Object.entries(customization.toppings).reduce(
-      (sum, [name, qty]) => sum + (TOPPING_PRICES[name] || 0) * qty,
-      0
-    );
-    return basePrice + toppingCost;
-  };
+  // Cart bottom sheet overlay state
+  const [showCartOverlay, setShowCartOverlay] = useState(false);
 
-  const triggerToast = (message: string) => {
-    setShowToast(message);
-    setTimeout(() => setShowToast(null), 2000);
-  };
+  // Topping list and prices
+  const TOPPING_OPTIONS = [
+    { name: 'Kerupuk', price: 2000 },
+    { name: 'Siomay', price: 3000 },
+    { name: 'Ceker Ayam', price: 5000 },
+    { name: 'Sosis', price: 4000 }
+  ];
 
-  const handleAddToBag = (name: string) => {
-    setCartCount(prev => prev + 1);
-    triggerToast(`${name} berhasil ditambahkan!`);
-  };
-
-  const handleSaveCustomization = () => {
-    setIsCustomizing(false);
-    setCartCount(prev => prev + 1);
-    triggerToast(`Kustomisasi Seblak berhasil ditambahkan ke keranjang!`);
-  };
-
-  const handleToppingQty = (name: string, diff: number) => {
-    setCustomization(prev => ({
-      ...prev,
-      toppings: {
-        ...prev.toppings,
-        [name]: Math.max(0, (prev.toppings[name] || 0) + diff)
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    setIsClient(true);
+    const storedCart = localStorage.getItem('seblak_cart');
+    if (storedCart) {
+      try {
+        setCart(JSON.parse(storedCart));
+      } catch (e) {
+        console.error('Error parsing stored cart:', e);
       }
-    }));
+    }
+  }, []);
+
+  // Save cart to localStorage
+  const saveCart = (newCart: CartItem[]) => {
+    setCart(newCart);
+    localStorage.setItem('seblak_cart', JSON.stringify(newCart));
   };
+
+  // Calculate sum total of cart
+  const calculateCartTotal = () => {
+    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+  };
+
+  // Get total quantity of items in cart
+  const calculateCartCount = () => {
+    return cart.reduce((count, item) => count + item.quantity, 0);
+  };
+
+  // Add normal (non-seblak) menu item to cart
+  const handleAddSimpleItem = (item: MenuItem) => {
+    const existing = cart.find(c => c.menuId === item.id && !c.customization);
+    if (existing) {
+      const updated = cart.map(c => 
+        c.id === existing.id ? { ...c, quantity: c.quantity + 1 } : c
+      );
+      saveCart(updated);
+    } else {
+      const newItem: CartItem = {
+        id: `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        menuId: item.id,
+        name: item.name,
+        price: item.price,
+        basePrice: item.price,
+        quantity: 1,
+        image: item.image
+      };
+      saveCart([...cart, newItem]);
+    }
+  };
+
+  // Reduce simple item quantity or remove it
+  const handleDecreaseSimpleItem = (item: MenuItem) => {
+    const existing = cart.find(c => c.menuId === item.id && !c.customization);
+    if (!existing) return;
+
+    if (existing.quantity > 1) {
+      const updated = cart.map(c => 
+        c.id === existing.id ? { ...c, quantity: c.quantity - 1 } : c
+      );
+      saveCart(updated);
+    } else {
+      const updated = cart.filter(c => c.id !== existing.id);
+      saveCart(updated);
+    }
+  };
+
+  // Get simple item count in cart
+  const getSimpleItemCount = (itemId: string) => {
+    const found = cart.find(c => c.menuId === itemId && !c.customization);
+    return found ? found.quantity : 0;
+  };
+
+  // Get custom seblak count in cart
+  const getSeblakItemCount = () => {
+    return cart
+      .filter(c => c.menuId === 'seblak-1')
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
+  // Open customization modal
+  const openCustomizationModal = (item: MenuItem, existingCartItem?: CartItem) => {
+    if (existingCartItem) {
+      // Editing mode
+      setEditingCartItemId(existingCartItem.id);
+      setCustomizingItem(item);
+      setCustomQty(existingCartItem.quantity);
+      if (existingCartItem.customization) {
+        setCustomization(existingCartItem.customization);
+      }
+    } else {
+      // Adding new mode
+      setEditingCartItemId(null);
+      setCustomizingItem(item);
+      setCustomQty(1);
+      setCustomization({
+        spiciness: '',
+        soup: '',
+        toppings: [],
+        notes: ''
+      });
+    }
+  };
+
+  // Calculate customized seblak price
+  const calculateCustomizedPrice = () => {
+    if (!customizingItem) return 0;
+    let price = customizingItem.price;
+    customization.toppings.forEach(t => {
+      const tOption = TOPPING_OPTIONS.find(opt => opt.name === t.name);
+      if (tOption) {
+        price += tOption.price * t.quantity;
+      }
+    });
+    return price;
+  };
+
+  // Save customization to cart
+  const handleSaveCustomization = () => {
+    if (!customizingItem) return;
+
+    const unitPrice = calculateCustomizedPrice();
+
+    if (editingCartItemId) {
+      // Update existing item
+      const updated = cart.map(c => {
+        if (c.id === editingCartItemId) {
+          return {
+            ...c,
+            price: unitPrice,
+            quantity: customQty,
+            customization: { ...customization }
+          };
+        }
+        return c;
+      });
+      saveCart(updated);
+      setEditingCartItemId(null);
+    } else {
+      // Add new customized item
+      const newItem: CartItem = {
+        id: `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        menuId: customizingItem.id,
+        name: customizingItem.name,
+        price: unitPrice,
+        basePrice: customizingItem.price,
+        quantity: customQty,
+        customization: { ...customization },
+        image: customizingItem.image
+      };
+      saveCart([...cart, newItem]);
+    }
+
+    setCustomizingItem(null);
+  };
+
+  // Handle topping quantity changes in customization modal
+  const handleToppingQty = (name: string, delta: number) => {
+    setCustomization(prev => {
+      const existing = prev.toppings.find(t => t.name === name);
+      if (existing) {
+        const newQty = existing.quantity + delta;
+        if (newQty <= 0) {
+          return { ...prev, toppings: prev.toppings.filter(t => t.name !== name) };
+        }
+        return { ...prev, toppings: prev.toppings.map(t => t.name === name ? { ...t, quantity: newQty } : t) };
+      }
+      if (delta > 0) {
+        return { ...prev, toppings: [...prev.toppings, { name, quantity: 1 }] };
+      }
+      return prev;
+    });
+  };
+
+  // Handle direct cart quantity changes in bottom sheet list
+  const handleUpdateCartItemQty = (id: string, delta: number) => {
+    const updated = cart.map(item => {
+      if (item.id === id) {
+        const newQty = item.quantity + delta;
+        return newQty > 0 ? { ...item, quantity: newQty } : null;
+      }
+      return item;
+    }).filter(Boolean) as CartItem[];
+    saveCart(updated);
+  };
+
+  // Format price as Indonesian currency string
+  const formatPrice = (num: number) => {
+    return 'Rp' + num.toLocaleString('id-ID').replace(/\s/g, '');
+  };
+
+  // Filter menu items by search query and active tab
+  const filteredItems = MENU_ITEMS.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTab = item.category === activeTab;
+    return matchesSearch && matchesTab;
+  });
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 min-h-screen pb-24 relative select-none">
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="absolute top-16 inset-x-4 bg-gray-900 text-white text-xs text-center py-3 px-4 rounded-xl shadow-lg z-50 transition-all animate-bounce">
-          {showToast}
+    <div className="flex-1 flex flex-col bg-slate-50 min-h-screen relative font-sans text-gray-800">
+      
+      {/* Header with Search and Back navigation */}
+      <header className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3.5 z-30 flex items-center space-x-3.5">
+        <button onClick={() => router.push('/')} className="hover:opacity-85 transition-opacity">
+          <svg className="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        {/* Search Bar matching "Cari menu favoritmu..." */}
+        <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2 border border-transparent focus-within:border-gray-200 transition-all">
+          <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            className="w-full bg-transparent border-none outline-none text-xs font-semibold placeholder-gray-400 text-gray-700"
+            placeholder="Cari menu favoritmu..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-      )}
+      </header>
 
-      {/* RENDER CUSTOMIZATION SCREEN OVERLAY */}
-      {isCustomizing ? (
-        <div className="absolute inset-0 bg-slate-50 flex flex-col z-40">
-          {/* Header */}
-          <header className="sticky top-0 bg-red-800 text-white flex items-center justify-between px-4 py-3.5 shadow-md">
-            <button onClick={() => setIsCustomizing(false)} className="hover:opacity-80 transition-opacity">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
+      {/* Tabs segment: Seblak, Makanan, Minuman */}
+      <div className="sticky top-[61px] bg-white border-b border-gray-100 py-1 px-2 flex justify-around items-center z-25">
+        {[
+          { id: 'seblak', label: 'Seblak', icon: '🌶️' },
+          { id: 'makanan', label: 'Makanan', icon: '🍲' },
+          { id: 'minuman', label: 'Minuman', icon: '🥤' }
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 py-3.5 flex flex-col items-center justify-center space-y-1 relative transition-all border-b-2 ${
+                isActive ? 'border-red-700 text-red-700 font-extrabold' : 'border-transparent text-gray-400 font-bold'
+              }`}
+            >
+              <div className="flex items-center space-x-1.5 text-[14px]">
+                <span>{tab.icon}</span>
+                <span className="tracking-wide text-xs">{tab.label}</span>
+              </div>
             </button>
-            <img src={logo1.src} alt="Seblak Mamah Zahwa" className="h-10 sm:h-12 md:h-14 object-contain" />
-            <button onClick={() => router.push('/cart')} className="relative p-1">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-red-800">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-          </header>
+          );
+        })}
+      </div>
 
-          {/* Form Scroll Content */}
-          <div className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
-            <div className="flex justify-between items-center">
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">Pilih Kustomisasi Seblak</h1>
-              <span className="text-[10px] font-bold bg-gray-100 text-red-600 px-3 py-1 rounded-full">
-                Antrean: <strong className="font-extrabold">#SBK-023</strong>
-              </span>
-            </div>
+      {/* List of filtered items in Category */}
+      <main className="flex-1 px-4 py-5 space-y-6 overflow-y-auto pb-32">
+        <div className="space-y-4">
+          <h2 className="text-sm font-black text-gray-800 uppercase tracking-wider">
+            {activeTab === 'seblak' ? 'Seblak (1)' : activeTab === 'makanan' ? `Makanan (${filteredItems.length})` : `Minuman (${filteredItems.length})`}
+          </h2>
 
-            {/* Tingkat Kepedasan */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-gray-800 text-[14px]">Tingkat Kepedasan</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {(['Original', 'Pedas Sedikit', 'Sedang', 'Pedas'] as const).map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setCustomization(prev => ({ ...prev, spiciness: level }))}
-                    className={`py-3 px-4 rounded-xl border-2 text-xs font-bold transition-all text-center ${
-                      customization.spiciness === level
-                        ? 'border-red-600 bg-red-50 text-red-600 shadow-sm'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="space-y-3.5">
+            {filteredItems.map((item) => {
+              const isSeblak = item.category === 'seblak';
+              const simpleCount = getSimpleItemCount(item.id);
+              const totalSeblakInCart = getSeblakItemCount();
 
-            {/* Tekstur Kuah */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-gray-800 text-[14px]">Tekstur Kuah</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {(['Kering', 'Sedang', 'Banjir'] as const).map((text) => (
-                  <button
-                    key={text}
-                    onClick={() => setCustomization(prev => ({ ...prev, texture: text }))}
-                    className={`py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all text-center ${
-                      customization.texture === text
-                        ? 'border-red-600 bg-red-50 text-red-600 shadow-sm'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-            </div>
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-2xl p-3.5 border border-rose-50/50 shadow-sm hover:shadow-md transition-shadow flex items-center justify-between"
+                >
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-16 h-16 rounded-xl object-cover border border-rose-50"
+                    />
+                    <div>
+                      <h3 className="font-extrabold text-gray-900 text-sm">{item.name}</h3>
+                      <p className="font-black text-red-600 text-xs mt-1">
+                        {formatPrice(item.price)}
+                      </p>
+                    </div>
+                  </div>
 
-            {/* Tipe Kuah */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-gray-800 text-[14px]">Tipe Kuah</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {(['Asin', 'Manis', 'Gurih'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setCustomization(prev => ({ ...prev, soupType: type }))}
-                    className={`py-3 px-2 rounded-xl border-2 text-xs font-bold transition-all text-center ${
-                      customization.soupType === type
-                        ? 'border-red-600 bg-red-50 text-red-600 shadow-sm'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Toppings Selection */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-gray-800 text-[14px]">Topping</h3>
-                <span className="text-xs font-bold text-red-600 cursor-pointer">Lihat Semua</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3.5">
-                {Object.keys(TOPPING_PRICES).map((name) => {
-                  const qty = customization.toppings[name] || 0;
-                  const isActive = qty > 0;
-                  
-                  const illustration = (() => {
-                    const map: Record<string, string> = {
-                      'Kerupuk': 'https://placehold.co/60x60/FEE2E2/991B1B?text=Kerupuk',
-                      'Siomay': 'https://placehold.co/60x60/FEE2E2/991B1B?text=Siomay',
-                      'Ceker Ayam': 'https://placehold.co/60x60/FEE2E2/991B1B?text=Ceker',
-                      'Sosis': 'https://placehold.co/60x60/FEE2E2/991B1B?text=Sosis',
-                    };
-                    return map[name] || 'https://placehold.co/60x60/FEE2E2/991B1B?text=Toping';
-                  })();
-
-                  return (
-                    <div
-                      key={name}
-                      className={`bg-white border rounded-2xl p-3.5 flex flex-col items-center justify-between shadow-sm relative transition-all ${
-                        isActive ? 'border-red-600 ring-2 ring-red-500/10' : 'border-rose-100/50'
-                      }`}
-                    >
-                      {isActive && (
-                        <span className="absolute top-2.5 right-2.5 bg-red-600 text-white text-[8px] font-black p-0.5 rounded-full flex items-center justify-center w-4 h-4 shadow">
-                          ✓
-                        </span>
-                      )}
-
-                      <img src={illustration} alt={name} className="w-14 h-14 rounded-xl object-cover mb-1.5" />
-                      
-                      <div className="text-center mb-3">
-                        <p className="font-extrabold text-gray-800 text-xs">{name}</p>
-                        <p className="text-[10px] text-gray-400 font-semibold mt-0.5">Rp {TOPPING_PRICES[name].toLocaleString()}</p>
-                      </div>
-
-                      {/* Quantity Selector */}
-                      <div className="flex items-center justify-between bg-slate-50 border border-gray-100 rounded-full w-full py-1.5 px-3">
+                  {/* Add action */}
+                  {isSeblak ? (
+                    // For custom Seblak
+                    totalSeblakInCart > 0 ? (
+                      <div className="flex items-center space-x-3.5 bg-gray-50 border border-gray-150 rounded-full px-3 py-1.5 shadow-inner">
                         <button
-                          onClick={() => handleToppingQty(name, -1)}
-                          className="w-5 h-5 flex items-center justify-center bg-white border border-gray-150 rounded-full text-gray-500 text-xs font-bold active:scale-90"
+                          onClick={() => {
+                            // Find the first seblak and decrease it
+                            const firstSeblak = cart.find(c => c.menuId === item.id);
+                            if (firstSeblak) handleUpdateCartItemQty(firstSeblak.id, -1);
+                          }}
+                          className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90"
                         >
                           -
                         </button>
-                        <span className="text-xs font-black text-gray-800">{qty}</span>
+                        <span className="text-xs font-black text-gray-800">{totalSeblakInCart}</span>
                         <button
-                          onClick={() => handleToppingQty(name, 1)}
-                          className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white text-xs font-bold active:scale-90"
+                          onClick={() => openCustomizationModal(item)}
+                          className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90"
                         >
                           +
                         </button>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Sticky Total bar */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-150 p-4 flex items-center justify-between shadow-lg">
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Harga</p>
-              <h2 className="text-xl font-black text-gray-900 mt-0.5">
-                Rp {calculateCustomPrice().toLocaleString()}
-              </h2>
-            </div>
-
-            <button
-              onClick={handleSaveCustomization}
-              className="bg-gradient-to-r from-red-700 to-amber-500 hover:opacity-95 active:scale-[0.98] text-white font-extrabold py-3.5 px-8 rounded-full flex items-center space-x-2 text-sm shadow-md"
-            >
-              <span>Pesan</span>
-              <span>→</span>
-            </button>
+                    ) : (
+                      <button
+                        onClick={() => openCustomizationModal(item)}
+                        className="w-7.5 h-7.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all text-lg"
+                      >
+                        +
+                      </button>
+                    )
+                  ) : (
+                    // For simple items
+                    simpleCount > 0 ? (
+                      <div className="flex items-center space-x-3.5 bg-gray-50 border border-gray-150 rounded-full px-3 py-1.5 shadow-inner">
+                        <button
+                          onClick={() => handleDecreaseSimpleItem(item)}
+                          className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90"
+                        >
+                          -
+                        </button>
+                        <span className="text-xs font-black text-gray-800">{simpleCount}</span>
+                        <button
+                          onClick={() => handleAddSimpleItem(item)}
+                          className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleAddSimpleItem(item)}
+                        className="w-7.5 h-7.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all text-lg"
+                      >
+                        +
+                      </button>
+                    )
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      ) : (
-        /* MAIN MENU SCREEN */
-        <>
-          {/* Header */}
-          <header className="sticky top-0 bg-red-800 text-white flex items-center justify-between px-4 py-3.5 shadow-md z-20">
-            <div className="flex items-center space-x-2">
-              <span className="text-xl">🌶️</span>
-              <img src={logo1.src} alt="Seblak Mamah Zahwa" className="h-8 sm:h-10 md:h-12 object-contain" />
-            </div>
+      </main>
 
-            <div className="flex items-center space-x-3.5">
-              <button onClick={() => router.push('/cart')} className="relative p-1">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+      {/* Sticky Bottom Cart Bar */}
+      {isClient && cart.length > 0 && (
+        <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100/80 shadow-2xl px-5 py-4 flex items-center justify-between z-40">
+          <div onClick={() => setShowCartOverlay(true)} className="flex items-center space-x-3.5 cursor-pointer hover:opacity-90 active:scale-98 transition-all">
+            {/* Basket icon with count badge */}
+            <div className="relative p-1">
+              <div className="w-11 h-11 bg-rose-50 border border-red-100 rounded-full flex items-center justify-center text-red-700 shadow-inner">
+                <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                 </svg>
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-red-800">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
-              <div className="w-7 h-7 rounded-full border-2 border-amber-400 bg-red-600 flex items-center justify-center text-[10px] font-bold shadow-inner">
-                SP
               </div>
+              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white shadow">
+                {calculateCartCount()}
+              </span>
             </div>
-          </header>
-
-          {/* Horizontal scroll category segments */}
-          <div className="sticky top-[52px] bg-white border-b border-gray-100 px-4 py-3 flex space-x-2 overflow-x-auto z-15 scrollbar-none">
-            <button
-              onClick={() => setActiveCategory('all')}
-              className={`px-4 py-2 rounded-full text-xs font-black transition-all ${
-                activeCategory === 'all' ? 'bg-red-700 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              Semua Menu
-            </button>
-            <button
-              onClick={() => setActiveCategory('custom')}
-              className={`px-4 py-2 rounded-full text-xs font-black transition-all ${
-                activeCategory === 'custom' ? 'bg-red-700 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              Custom Seblak
-            </button>
-            <button
-              onClick={() => setActiveCategory('makanan')}
-              className={`px-4 py-2 rounded-full text-xs font-black transition-all ${
-                activeCategory === 'makanan' ? 'bg-red-700 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              Makanan
-            </button>
-            <button
-              onClick={() => setActiveCategory('minuman')}
-              className={`px-4 py-2 rounded-full text-xs font-black transition-all ${
-                activeCategory === 'minuman' ? 'bg-red-700 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              Minuman
-            </button>
+            
+            {/* Price indicator */}
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Total Pembayaran</p>
+              <p className="text-md font-black text-red-600 mt-0.5">{formatPrice(calculateCartTotal())}</p>
+            </div>
           </div>
 
-          {/* Menu Main Content Scrollable */}
-          <div className="flex-1 px-4 py-5 space-y-6 overflow-y-auto">
-            {/* Custom Seblak Section */}
-            {(activeCategory === 'all' || activeCategory === 'custom') && (
-              <section className="space-y-3.5">
-                <div className="flex items-center space-x-2 text-red-700 font-bold">
-                  <span className="text-lg">🥣</span>
-                  <h2 className="tracking-tight text-md">Custom Seblak</h2>
+          <button
+            onClick={() => router.push('/cart')}
+            className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-3.5 px-7 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all"
+          >
+            <span>Checkout</span>
+          </button>
+        </div>
+      )}
+
+      {/* CUSTOMIZATION SCREEN OVERLAY MODAL ("Tambahkan Menu") */}
+      {customizingItem && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end transition-opacity duration-300">
+          {/* Dismiss Back-tap area */}
+          <div className="flex-1" onClick={() => setCustomizingItem(null)} />
+
+          {/* Modal Panel container */}
+          <div className="bg-white rounded-t-[32px] shadow-2xl flex flex-col max-h-[85vh] w-full transition-transform duration-300 transform translate-y-0 overflow-hidden">
+            
+            {/* Header bar */}
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-base font-black text-gray-900">Tambahkan Menu</h2>
+              <button
+                onClick={() => setCustomizingItem(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable form details */}
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+              
+              {/* Product Card Row */}
+              <div className="flex items-center justify-between border-b border-gray-100 pb-5">
+                <div className="flex items-center space-x-4">
+                  <img
+                    src={customizingItem.image}
+                    alt={customizingItem.name}
+                    className="w-16 h-16 rounded-2xl object-cover border border-rose-50"
+                  />
+                  <div>
+                    <h3 className="font-extrabold text-gray-900 text-[15px]">{customizingItem.name}</h3>
+                    <p className="font-black text-red-600 text-xs mt-1">
+                      {formatPrice(calculateCustomizedPrice())}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Custom Box card */}
-                <div className="bg-white border border-rose-100 rounded-2xl p-4 shadow-sm flex items-center justify-between">
-                  <div className="flex items-center space-x-3.5">
-                    <img src="https://placehold.co/56x56/FEE2E2/991B1B?text=Custom" alt="Custom Seblak" className="w-14 h-14 rounded-2xl object-cover" />
-                    <div>
-                      <h4 className="font-extrabold text-gray-800 text-[14px]">Seblak Pilihan 1</h4>
-                      <p className="text-[10px] text-gray-400 font-semibold mt-1">Pilihan Opsional • Racik seblakmu...</p>
-                    </div>
-                  </div>
-
+                {/* Main customization Qty Selector */}
+                <div className="flex items-center space-x-3 bg-gray-50 border border-gray-150 rounded-full px-3 py-1.5 shadow-inner">
                   <button
-                    onClick={() => setIsCustomizing(true)}
-                    className="w-8 h-8 rounded-full border-2 border-red-600 flex items-center justify-center text-red-600 font-bold hover:bg-red-50 active:scale-95 transition-all"
+                    onClick={() => setCustomQty(prev => Math.max(1, prev - 1))}
+                    className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-black text-gray-800">{customQty}</span>
+                  <button
+                    onClick={() => setCustomQty(prev => prev + 1)}
+                    className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90"
                   >
                     +
                   </button>
                 </div>
+              </div>
 
-                <button
-                  onClick={() => setIsCustomizing(true)}
-                  className="w-full bg-red-700 hover:bg-red-800 text-white font-black py-3.5 px-6 rounded-2xl flex items-center justify-center space-x-1.5 shadow-sm shadow-red-700/10 active:scale-[0.99] transition-all text-xs uppercase tracking-wider"
-                >
-                  <span>+</span>
-                  <span>Tambah Seblak Custom</span>
-                </button>
-              </section>
-            )}
-
-            {/* Makanan Section */}
-            {(activeCategory === 'all' || activeCategory === 'makanan') && (
-              <section className="space-y-3.5">
-                <div className="flex items-center space-x-2 text-red-700 font-bold">
-                  <span className="text-lg">🍴</span>
-                  <h2 className="tracking-tight text-md">Makanan</h2>
+              {/* TINGKAT KEPEDASAN */}
+              <div className="space-y-3">
+                <h3 className="text-[11px] font-black tracking-wider uppercase text-gray-400">
+                  Tingkat Kepedasan (Pilih 1)
+                </h3>
+                <div className="space-y-0.5 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                  {(['Original', 'Pedas Sedikit', 'Sedang', 'Pedas'] as const).map((level) => {
+                    const isActive = customization.spiciness === level;
+                    return (
+                      <label
+                        key={level}
+                        onClick={() => setCustomization(prev => ({ ...prev, spiciness: level }))}
+                        className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-50 border-b border-gray-50 last:border-none transition-colors"
+                      >
+                        <div>
+                          <p className={`text-xs font-bold ${isActive ? 'text-red-700' : 'text-gray-800'}`}>{level}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Rp0</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                          isActive ? 'border-red-600 bg-white' : 'border-gray-200'
+                        }`}>
+                          {isActive && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
+              </div>
 
-                {/* 2-Column Grid */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  {FOOD_ITEMS.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white border border-rose-100 rounded-2xl p-3.5 shadow-sm flex flex-col justify-between"
-                    >
-                      {/* Placeholder Image */}
-                      <img src={item.image} alt={item.name} className="w-full h-24 object-cover rounded-xl mb-3" />
+              {/* KUAH SELECTION */}
+              <div className="space-y-3">
+                <h3 className="text-[11px] font-black tracking-wider uppercase text-gray-400">
+                  Kuah (Pilih 1)
+                </h3>
+                <div className="space-y-0.5 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                  {(['Kering', 'Sedang', 'Banjir', 'Gurih'] as const).map((soupOpt) => {
+                    const isActive = customization.soup === soupOpt;
+                    return (
+                      <label
+                        key={soupOpt}
+                        onClick={() => setCustomization(prev => ({ ...prev, soup: soupOpt }))}
+                        className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-slate-50 border-b border-gray-50 last:border-none transition-colors"
+                      >
+                        <div>
+                          <p className={`text-xs font-bold ${isActive ? 'text-red-700' : 'text-gray-800'}`}>{soupOpt}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Rp0</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                          isActive ? 'border-red-600 bg-white' : 'border-gray-200'
+                        }`}>
+                          {isActive && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
-                      <div className="space-y-1.5 flex-1 flex flex-col justify-between">
-                        <h4 className="font-bold text-gray-800 text-xs line-clamp-1">{item.name}</h4>
-                        <div className="flex justify-between items-center pt-1.5">
-                          <span className="font-black text-red-600 text-xs">
-                            Rp {item.price.toLocaleString()}
-                          </span>
+              {/* TOPPINGS */}
+              <div className="space-y-3">
+                <h3 className="text-[11px] font-black tracking-wider uppercase text-gray-400">
+                  Topping (Bisa Pilih Lebih Dari 1)
+                </h3>
+                <div className="space-y-0.5 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                  {TOPPING_OPTIONS.map((tOpt) => {
+                    const selected = customization.toppings.find(t => t.name === tOpt.name);
+                    const qty = selected?.quantity || 0;
+                    return (
+                      <div
+                        key={tOpt.name}
+                        className="flex items-center justify-between px-4 py-3.5 border-b border-gray-50 last:border-none"
+                      >
+                        <div>
+                          <p className={`text-xs font-bold ${qty > 0 ? 'text-red-700' : 'text-gray-800'}`}>{tOpt.name}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{formatPrice(tOpt.price)}</p>
+                        </div>
+                        {qty > 0 ? (
+                          <div className="flex items-center space-x-2.5 bg-gray-50 border border-gray-150 rounded-full px-2.5 py-1 shadow-inner">
+                            <button
+                              onClick={() => handleToppingQty(tOpt.name, -1)}
+                              className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90"
+                            >
+                              -
+                            </button>
+                            <span className="text-xs font-black text-gray-800 min-w-[16px] text-center">{qty}</span>
+                            <button
+                              onClick={() => handleToppingQty(tOpt.name, 1)}
+                              className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={() => handleAddToBag(item.name)}
-                            className="w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-90 text-white font-extrabold rounded-full flex items-center justify-center shadow shadow-red-600/10"
+                            onClick={() => handleToppingQty(tOpt.name, 1)}
+                            className="w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all"
                           >
                             +
                           </button>
-                        </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* DENGAN KOLOM CATATAN */}
+              <div className="space-y-3">
+                <h3 className="text-[11px] font-black tracking-wider uppercase text-gray-400">
+                  Catatan (Opsional)
+                </h3>
+                <textarea
+                  className="w-full bg-gray-50 border border-gray-150 rounded-2xl p-4 text-xs font-medium outline-none focus:bg-white focus:border-red-500 transition-all text-gray-700"
+                  rows={3}
+                  placeholder="Contoh: Jangan pakai daun bawang ya..."
+                  value={customization.notes}
+                  onChange={(e) => setCustomization(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+            </div>
+
+            {/* Bottom sticky submission button */}
+            <div className="p-4 border-t border-gray-100 bg-white space-y-2">
+              {(!customization.spiciness || !customization.soup || customization.toppings.length === 0) && (
+                <p className="text-[10px] font-bold text-red-500 text-center">
+                  Lengkapi kepedasan, kuah, dan minimal 1 topping
+                </p>
+              )}
+              <button
+                onClick={handleSaveCustomization}
+                disabled={!customization.spiciness || !customization.soup || customization.toppings.length === 0}
+                className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-red-600/15 transition-all flex items-center justify-center space-x-2"
+              >
+                <span>Tambahkan ke Keranjang - {formatPrice(calculateCustomizedPrice() * customQty)}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* BOTTOM SHEET OVERLAY FOR CART: "Keranjang Saya" */}
+      {showCartOverlay && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end transition-opacity duration-300">
+          {/* Backdrop click dismiss */}
+          <div className="flex-1" onClick={() => setShowCartOverlay(false)} />
+
+          {/* Cart Panel wrapper */}
+          <div className="bg-white rounded-t-[32px] shadow-2xl flex flex-col max-h-[80vh] w-full transition-transform duration-300 transform translate-y-0 overflow-hidden">
+            
+            {/* Header bar */}
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-base font-black text-gray-900">Keranjang Saya</h2>
+              <button
+                onClick={() => setShowCartOverlay(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {cart.map((item) => {
+                const isCustom = !!item.customization;
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white border border-rose-50/50 rounded-2xl p-4 shadow-sm flex items-start justify-between relative"
+                  >
+                    <div className="flex items-start space-x-4 pr-16">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-14 h-14 rounded-xl object-cover border border-rose-50 mt-0.5"
+                      />
+                      <div className="space-y-1">
+                        <h3 className="font-extrabold text-gray-900 text-sm leading-tight">{item.name}</h3>
+                        
+                        {/* Custom attributes */}
+                        {isCustom && item.customization && (
+                          <p className="text-[10px] text-gray-400 font-bold leading-normal">
+                            {[item.customization.spiciness, item.customization.soup, ...item.customization.toppings.map(t => `${t.name}${t.quantity > 1 ? ` ×${t.quantity}` : ''}`)].filter(Boolean).join(', ') || 'Tanpa custom'}
+                          </p>
+                        )}
+                        
+                        {/* Note link */}
+                        {isCustom && item.customization && (
+                          <div className="flex items-center space-x-1 text-[10px] font-bold text-gray-500">
+                            <span>✍️</span>
+                            <span>{item.customization.notes || 'Add note...'}</span>
+                          </div>
+                        )}
+
+                        <p className="font-black text-red-600 text-xs pt-1">
+                          {formatPrice(item.price * item.quantity)}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </section>
-            )}
 
-            {/* Minuman Section */}
-            {(activeCategory === 'all' || activeCategory === 'minuman') && (
-              <section className="space-y-3.5">
-                <div className="flex items-center space-x-2 text-red-700 font-bold">
-                  <span className="text-lg">🥛</span>
-                  <h2 className="tracking-tight text-md">Minuman</h2>
-                </div>
-
-                {/* Row layout */}
-                <div className="space-y-3">
-                  {DRINK_ITEMS.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white border border-rose-50 rounded-2xl p-3 flex items-center justify-between shadow-sm"
-                    >
-                      <div className="flex items-center space-x-3.5">
-                        <img src={item.image} alt={item.name} className="w-12 h-12 rounded-xl object-cover" />
-                        <div>
-                          <h4 className="font-extrabold text-gray-800 text-xs">{item.name}</h4>
-                          <p className="font-black text-red-600 text-xs mt-1">Rp {item.price.toLocaleString()}</p>
-                        </div>
-                      </div>
-
+                    {/* Edit Option for customized elements */}
+                    {isCustom && (
                       <button
-                        onClick={() => handleAddToBag(item.name)}
-                        className="w-7 h-7 rounded-full border-2 border-red-600 flex items-center justify-center text-red-600 font-bold hover:bg-red-50 active:scale-95 transition-all text-sm"
+                        onClick={() => {
+                          const originalItem = MENU_ITEMS.find(m => m.id === item.menuId);
+                          if (originalItem) {
+                            setShowCartOverlay(false);
+                            openCustomizationModal(originalItem, item);
+                          }
+                        }}
+                        className="absolute right-4 top-4 text-xs font-black text-red-600 hover:opacity-80"
+                      >
+                        Edit
+                      </button>
+                    )}
+
+                    {/* Direct Quantity selector */}
+                    <div className="absolute right-4 bottom-4 flex items-center space-x-2.5 bg-gray-50 border border-gray-150 rounded-full px-2.5 py-1 shadow-inner">
+                      <button
+                        onClick={() => handleUpdateCartItemQty(item.id, -1)}
+                        className="w-4.5 h-4.5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90"
+                      >
+                        -
+                      </button>
+                      <span className="text-xs font-black text-gray-800">{item.quantity}</span>
+                      <button
+                        onClick={() => handleUpdateCartItemQty(item.id, 1)}
+                        className="w-4.5 h-4.5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90"
                       >
                         +
                       </button>
                     </div>
-                  ))}
+
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Sticky Bottom bar for cart sheet */}
+            <div className="p-4 border-t border-gray-100 bg-white flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="relative p-1">
+                  <div className="w-10 h-10 bg-rose-50 border border-red-100 rounded-full flex items-center justify-center text-red-700 shadow-inner">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                  </div>
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white shadow">
+                    {calculateCartCount()}
+                  </span>
                 </div>
-              </section>
-            )}
+                <div>
+                  <p className="text-[9px] text-gray-400 uppercase font-black tracking-wider">Total Pembayaran</p>
+                  <p className="text-sm font-black text-red-600 mt-0.5">{formatPrice(calculateCartTotal())}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => router.push('/cart')}
+                className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-3.5 px-6 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all"
+              >
+                <span>Checkout</span>
+              </button>
+            </div>
+
           </div>
-
-          {/* Bottom Sticky Navigation */}
-          <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 py-3.5 px-4 flex justify-between items-center z-10">
-            <button
-              onClick={() => setActiveCategory('all')}
-              className="flex-1 flex flex-col items-center justify-center space-y-1 py-1 rounded-xl transition-all bg-amber-500 text-white font-bold p-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="text-[10px]">Beranda</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/cart')}
-              className="flex-1 flex flex-col items-center justify-center space-y-1 py-1 rounded-xl transition-all text-gray-400 font-medium relative"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span className="text-[10px]">Keranjang</span>
-              {cartCount > 0 && (
-                <span className="absolute top-1 right-5 bg-red-600 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => router.push('/order-status')}
-              className="flex-1 flex flex-col items-center justify-center space-y-1 py-1 rounded-xl transition-all text-gray-400 font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <span className="text-[10px]">Status</span>
-            </button>
-
-            <button
-              onClick={() => router.push('/')}
-              className="flex-1 flex flex-col items-center justify-center space-y-1 py-1 rounded-xl transition-all text-gray-400 font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A9 9 0 0112 15a9 9 0 016.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-[10px]">Profile</span>
-            </button>
-          </nav>
-        </>
+        </div>
       )}
+
     </div>
   );
 }
