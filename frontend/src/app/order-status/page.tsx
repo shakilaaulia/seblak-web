@@ -125,6 +125,12 @@ function OrderStatusContent() {
               <span className="text-2xl">😔</span>
             </div>
             <h3 className="text-lg font-black text-red-700">Pesanan Ditolak</h3>
+            {order?.declineReason && (
+              <div className="bg-white border border-red-100 rounded-2xl p-3.5 text-left">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1">Alasan</p>
+                <p className="text-xs font-semibold text-gray-700">{order.declineReason}</p>
+              </div>
+            )}
             <p className="text-xs font-semibold text-gray-500">
               Maaf, pesananmu tidak dapat diproses. Silakan hubungi Mamah Zahwa untuk info lebih lanjut.
             </p>

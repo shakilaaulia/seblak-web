@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getOrdersByStatus, getOrderItems, addOrder, getNextOrderNumber } from '@/lib/store';
+import { getOrdersByStatus, getOrderItems, addOrder, getNextOrderNumber, deductIngredientStock } from '@/lib/store';
 import type { Order, OrderItem } from '@/lib/types';
+
+type OrderInputItem = {
+  productId?: string;
+  productName?: string;
+  name?: string;
+  quantity?: number;
+  price?: number;
+  customization?: OrderItem['customization'];
+  selectedVariants?: OrderItem['selectedVariants'];
+};
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -49,7 +59,7 @@ export async function POST(req: Request) {
       updatedAt: now,
     };
 
-    const orderItems: OrderItem[] = items.map((item: any, i: number) => ({
+    const orderItems: OrderItem[] = items.map((item: OrderInputItem, i: number) => ({
       id: `oi-${id}-${i}`,
       orderId: id,
       productId: item.productId || '',
@@ -57,9 +67,18 @@ export async function POST(req: Request) {
       quantity: item.quantity || 1,
       price: item.price || 0,
       subtotal: (item.price || 0) * (item.quantity || 1),
+      customization: item.customization || undefined,
+      selectedVariants: item.selectedVariants || undefined,
     }));
 
     addOrder(order, orderItems);
+
+    for (const item of items) {
+      const productId = item.productId || '';
+      if (productId) {
+        deductIngredientStock(productId, item.quantity || 1);
+      }
+    }
 
     return NextResponse.json({
       ...order,

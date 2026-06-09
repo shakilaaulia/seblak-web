@@ -8,9 +8,16 @@ interface ToppingSelection {
   quantity: number;
 }
 
+interface SelectedVariant {
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 interface Customization {
   spiciness: 'Original' | 'Pedas Sedikit' | 'Sedang' | 'Pedas';
-  soup: 'Kering' | 'Sedang' | 'Banjir' | 'Gurih';
+  soup: 'Kering' | 'Sedang' | 'Banjir';
+  flavors: string[];
   toppings: ToppingSelection[];
   notes: string;
 }
@@ -23,6 +30,7 @@ interface CartItem {
   basePrice: number;
   quantity: number;
   customization?: Customization;
+  selectedVariants?: SelectedVariant[];
   image: string;
 }
 
@@ -146,6 +154,8 @@ export default function CartPage() {
         productName: item.name,
         quantity: item.quantity,
         price: item.price,
+        customization: item.customization,
+        selectedVariants: item.selectedVariants,
       })),
     };
 
@@ -279,7 +289,17 @@ export default function CartPage() {
                       <h3 className="font-extrabold text-gray-900 text-xs">{item.name}</h3>
                       {item.customization && (
                         <p className="text-[9px] text-gray-400 font-bold leading-relaxed mt-0.5 max-w-[200px]">
-                          {[item.customization.spiciness, item.customization.soup, ...item.customization.toppings.map(t => `${t.name}${t.quantity > 1 ? ` ×${t.quantity}` : ''}`)].filter(Boolean).join(', ') || 'Tanpa custom'}
+                          {[
+                            item.customization.spiciness || null,
+                            item.customization.soup || null,
+                            ...(item.customization.flavors.length > 0 ? [item.customization.flavors.join(' + ')] : []),
+                            ...item.customization.toppings.map(t => `${t.name}${t.quantity > 1 ? ` ×${t.quantity}` : ''}`)
+                          ].filter(Boolean).join(', ') || 'Tanpa custom'}
+                        </p>
+                      )}
+                      {item.selectedVariants && item.selectedVariants.length > 0 && (
+                        <p className="text-[9px] text-gray-400 font-bold leading-relaxed mt-0.5 max-w-[200px]">
+                          {item.selectedVariants.map(v => `${v.name}${v.quantity > 1 ? ` ×${v.quantity}` : ''}`).join(', ')}
                         </p>
                       )}
                       <p className="text-[10px] text-gray-400 font-extrabold mt-0.5">{item.quantity}x</p>

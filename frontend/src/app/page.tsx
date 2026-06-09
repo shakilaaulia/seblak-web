@@ -49,7 +49,7 @@ export default function HomePage() {
         const orders = await res.json();
         const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
         if (ongoing.length === 0) {
-          setTrackError("Tidak ada pesanan aktif ditemukan. Periksa kembali nama atau nomor WhatsApp.");
+          setTrackError("Tidak ada pesanan aktif ditemukan. Periksa kembali nomor WhatsApp.");
         } else {
           setSearchResults(ongoing);
         }
@@ -133,15 +133,15 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={() => setShowTrack(false)}>
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-black text-gray-900 text-center mb-1">Lacak Pesanan</h2>
-            <p className="text-xs text-gray-400 text-center mb-5">Masukkan nama atau nomor WhatsApp yang digunakan saat checkout</p>
+            <p className="text-xs text-gray-400 text-center mb-5">Masukkan nomor WhatsApp yang digunakan saat checkout</p>
 
             <form onSubmit={handleTrackOrder} className="space-y-4">
               <input
-                type="text"
+                type="tel"
                 className="w-full bg-gray-50 border border-transparent rounded-2xl px-4 py-3 text-sm font-semibold outline-none focus:bg-white focus:border-red-500 transition-all text-gray-700"
-                placeholder="Nama atau nomor WhatsApp"
+                placeholder="Nomor WhatsApp"
                 value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); setSearchResults(null); setTrackError(""); }}
+                onChange={e => { setSearchQuery(e.target.value.replace(/\D/g, '')); setSearchResults(null); setTrackError(""); }}
                 autoFocus
               />
 

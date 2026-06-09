@@ -4,7 +4,7 @@ import { updateOrderStatus, getOrderById, getOrderItems } from '@/lib/store';
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { action } = await req.json();
+    const { action, declineReason } = await req.json();
 
     const validActions = ['approve', 'process', 'ready', 'complete', 'decline'] as const;
     if (!validActions.includes(action)) {
@@ -20,7 +20,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     };
 
     const newStatus = statusMap[action];
-    const updated = updateOrderStatus(id, newStatus);
+    const updated = updateOrderStatus(id, newStatus, declineReason);
 
     if (!updated) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
