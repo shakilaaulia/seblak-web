@@ -26,7 +26,7 @@ export async function POST(req: Request) {
        category = await prisma.category.findUnique({ where: { id: categoryId } });
     }
     if (!category && categoryId) {
-       category = await prisma.category.create({ data: { id: categoryId, name: 'Default Category' } });
+       category = await prisma.category.create({ data: { id: categoryId, name: categoryId } });
     } else if (!categoryId) {
        let defaultCat = await prisma.category.findFirst();
        if (!defaultCat) {

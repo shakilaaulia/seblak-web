@@ -2,11 +2,18 @@ import { addSSEListener } from '@/lib/store';
 
 export async function GET() {
   const encoder = new TextEncoder();
+  let cleanup: (() => void) | undefined;
+  let keepAlive: NodeJS.Timeout | undefined;
+
   const stream = new ReadableStream({
     start(controller) {
-      controller.enqueue(encoder.encode('retry: 3000\n\n'));
+      try {
+        controller.enqueue(encoder.encode('retry: 3000\n\n'));
+      } catch (e) {
+        // stream already closed
+      }
 
-      const cleanup = addSSEListener((order) => {
+      cleanup = addSSEListener((order) => {
         const data = JSON.stringify({
           id: order.id,
           orderNumber: order.orderNumber,
@@ -14,22 +21,26 @@ export async function GET() {
           totalPrice: order.totalPrice,
           status: order.status,
         });
-        controller.enqueue(encoder.encode(`event: new-order\ndata: ${data}\n\n`));
+        try {
+          controller.enqueue(encoder.encode(`event: new-order\ndata: ${data}\n\n`));
+        } catch (e) {
+          // stream already closed
+        }
       });
 
       // Keep connection alive
-      const keepAlive = setInterval(() => {
-        controller.enqueue(encoder.encode(': keepalive\n\n'));
+      keepAlive = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(': keepalive\n\n'));
+        } catch (e) {
+          // stream already closed
+          if (keepAlive) clearInterval(keepAlive);
+        }
       }, 15000);
-
-      // Cleanup on cancel
-      (controller as any)._cleanup = () => {
-        cleanup();
-        clearInterval(keepAlive);
-      };
     },
     cancel() {
-      if ((this as any)._cleanup) (this as any)._cleanup();
+      if (cleanup) cleanup();
+      if (keepAlive) clearInterval(keepAlive);
     },
   });
 

@@ -88,7 +88,12 @@ export async function POST(req: Request) {
       }
     });
 
-    emitNewOrder(order);
+    // Notify SSE stream safely
+    try {
+      emitNewOrder(order);
+    } catch (sseErr) {
+      console.warn('SSE notification failed, order created anyway:', sseErr);
+    }
 
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
