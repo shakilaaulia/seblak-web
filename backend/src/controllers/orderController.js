@@ -1,4 +1,5 @@
 const prisma = require('../prismaClient');
+const { generateQueueNumber } = require('../utils/queue');
 
 exports.getOrders = async (req, res, next) => {
   try {
@@ -35,9 +36,8 @@ exports.createOrder = async (req, res, next) => {
       return res.status(400).json({ message: 'Data pesanan tidak lengkap' });
     }
 
-    // Generate Order Number
-    const count = await prisma.order.count();
-    const orderNumber = `#SBK-${String(count + 1).padStart(3, '0')}`;
+    // Generate Order Number (daily reset format: #SBK-YYYYMMDD-XXX)
+    const orderNumber = await generateQueueNumber();
 
     const order = await prisma.order.create({
       data: {

@@ -1,7 +1,7 @@
 exports.login = (req, res, next) => {
   try {
     const { pin } = req.body;
-    const ADMIN_PIN = '123456';
+    const ADMIN_PIN = process.env.ADMIN_PIN || '123456';
     
     if (pin === ADMIN_PIN) {
       res.cookie('admin_session', 'true', {
@@ -18,4 +18,12 @@ exports.login = (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+exports.verify = (req, res) => {
+  const session = req.cookies?.admin_session;
+  if (session === 'true') {
+    return res.json({ authenticated: true });
+  }
+  return res.status(401).json({ authenticated: false });
 };

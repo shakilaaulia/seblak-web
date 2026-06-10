@@ -1,25 +1,31 @@
 import { NextResponse } from 'next/server';
-import { getStore, addTopping } from '@/lib/store';
-import type { Topping } from '@/lib/types';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
-  return NextResponse.json(getStore().toppings);
+  try {
+    const toppings = await prisma.topping.findMany();
+    return NextResponse.json(toppings);
+  } catch (error) {
+    console.error('Error fetching toppings:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const newTopping: Topping = {
-      id: `t${Date.now()}`,
-      name: body.name,
-      price: body.price,
-      remaining: body.remaining ?? 10,
-      minWarning: body.minWarning ?? 3,
-      unit: body.unit ?? 'porsi',
-    };
-    addTopping(newTopping);
-    return NextResponse.json(newTopping, { status: 201 });
-  } catch {
+    const { name, price, remaining, minWarning, unit } = await req.json();
+    const topping = await prisma.topping.create({
+      data: {
+        name,
+        price: parseFloat(price) || 0,
+        remaining: parseFloat(remaining) || 0,
+        minWarning: parseFloat(minWarning) || 0,
+        unit: unit || 'porsi',
+      }
+    });
+    return NextResponse.json(topping, { status: 201 });
+  } catch (error) {
+    console.error('Error creating topping:', error);
     return NextResponse.json({ message: 'Invalid request' }, { status: 400 });
   }
 }

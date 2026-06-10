@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String
+  products Product[]
+
+  @@index([name])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  stock       Int
+  imageUrl    String
+  categoryId  String
+  isActive    Boolean  @default(true)
+
+  category    Category @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+  variants    ProductVariant[]
+  recipe      ProductRecipeIngredient[]
+
+  @@index([categoryId])
+}
+
+model Order {
+  id               String       @id @default(uuid())
+  orderNumber      String       @unique
+  customerName     String
+  customerWhatsapp String?
+  notes            String?
+  totalPrice       Float
+  paymentProofUrl  String?
+  status           String       @default("PENDING")
+  declineReason    String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  items            OrderItem[]
+  notifications    Notification[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id               String  @id @default(uuid())
+  orderId          String
+  productId        String
+  productName      String
+  quantity         Int
+  price            Float
+  subtotal         Float
+  customization    String?
+  selectedVariants String?
+
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Restaurant {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  address     String
+  phone       String
+  logoUrl     String
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  orderId   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([isRead])
+}
+
+model Ingredient {
+  id         String @id @default(uuid())
+  name       String
+  remaining  Float
+  unit       String
+  minWarning Float
+
+  recipes    ProductRecipeIngredient[]
+}
+
+model Topping {
+  id         String @id @default(uuid())
+  name       String
+  price      Float
+  remaining  Float
+  minWarning Float
+  unit       String
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  name      String
+  price     Float
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductRecipeIngredient {
+  id           String     @id @default(uuid())
+  productId    String
+  ingredientId String
+  quantity     Float
+
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([ingredientId])
+}

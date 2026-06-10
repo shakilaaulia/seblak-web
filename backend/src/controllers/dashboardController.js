@@ -5,24 +5,26 @@ exports.getSummary = async (req, res, next) => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const allOrders = await prisma.order.findMany();
-    const todayOrders = allOrders.filter(o => new Date(o.createdAt) >= todayStart);
-    
-    const pendingOrders = allOrders.filter(o => o.status === 'PENDING').length;
-    const processingOrders = allOrders.filter(o => o.status === 'PROCESSING').length;
-    const completedToday = todayOrders.filter(o => o.status === 'COMPLETED').length;
-    
-    const totalRevenueToday = todayOrders
-      .filter(o => o.status === 'COMPLETED')
-      .reduce((sum, o) => sum + o.totalPrice, 0);
+    // Use Prisma count/aggregate instead of fetching all orders into memory
+    const [totalOrdersAll, totalOrdersToday, pendingOrders, processingOrders, completedToday, revenueResult] = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { createdAt: { gte: todayStart } } }),
+      prisma.order.count({ where: { status: 'PENDING' } }),
+      prisma.order.count({ where: { status: 'PROCESSING' } }),
+      prisma.order.count({ where: { status: 'COMPLETED', createdAt: { gte: todayStart } } }),
+      prisma.order.aggregate({
+        _sum: { totalPrice: true },
+        where: { status: 'COMPLETED', createdAt: { gte: todayStart } },
+      }),
+    ]);
 
     res.json({
-      totalOrdersToday: todayOrders.length,
+      totalOrdersToday,
       pendingOrders,
       processingOrders,
       completedToday,
-      totalRevenueToday,
-      totalOrdersAll: allOrders.length,
+      totalRevenueToday: revenueResult._sum.totalPrice || 0,
+      totalOrdersAll,
     });
   } catch (err) {
     next(err);

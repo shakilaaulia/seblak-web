@@ -119,6 +119,15 @@ exports.updateProduct = async (req, res, next) => {
 exports.deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    // Check if product is referenced by any order items
+    const orderItemCount = await prisma.orderItem.count({ where: { productId: id } });
+    if (orderItemCount > 0) {
+      return res.status(400).json({ 
+        message: 'Produk tidak bisa dihapus karena masih ada order yang menggunakannya' 
+      });
+    }
+    
     await prisma.product.delete({ where: { id } });
     res.json({ message: 'Product deleted' });
   } catch (err) {

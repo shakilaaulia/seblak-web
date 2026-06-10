@@ -1,24 +1,30 @@
 import { NextResponse } from 'next/server';
-import { getStore, addIngredient } from '@/lib/store';
-import type { Ingredient } from '@/lib/types';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
-  return NextResponse.json(getStore().ingredients);
+  try {
+    const ingredients = await prisma.ingredient.findMany();
+    return NextResponse.json(ingredients);
+  } catch (error) {
+    console.error('Error fetching ingredients:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const newIngredient: Ingredient = {
-      id: `i${Date.now()}`,
-      name: body.name,
-      remaining: body.remaining ?? 10,
-      unit: body.unit ?? 'porsi',
-      minWarning: body.minWarning ?? 3,
-    };
-    addIngredient(newIngredient);
-    return NextResponse.json(newIngredient, { status: 201 });
-  } catch {
+    const { name, remaining, unit, minWarning } = await req.json();
+    const ingredient = await prisma.ingredient.create({
+      data: {
+        name,
+        remaining: parseFloat(remaining) || 0,
+        unit: unit || 'pcs',
+        minWarning: parseFloat(minWarning) || 0,
+      }
+    });
+    return NextResponse.json(ingredient, { status: 201 });
+  } catch (error) {
+    console.error('Error creating ingredient:', error);
     return NextResponse.json({ message: 'Invalid request' }, { status: 400 });
   }
 }
