@@ -1,127 +1,140 @@
-// src/controllers/orderController.js
 const prisma = require('../prismaClient');
-const { generateQueueNumber } = require('../utils/queue');
 
-/**
- * POST /api/orders
- * Creates a new order transactionally.
- * Expected body:
- *   {
- *     spiceLevel: Number,
- *     soupType: String,
- *     toppings: [{ toppingId: Number, quantity: Number }, ...]
- *   }
- */
-async function createOrder(req, res) {
-  const io = req.app.get('io');
-  const userId = req.user?.sub; // assumes auth middleware sets req.user
-  if (!userId) return res.status(401).json({ error: 'Authentication required' });
-
-  const { spiceLevel, soupType, toppings } = req.body;
-  if (!Array.isArray(toppings) || toppings.length === 0) {
-    return res.status(400).json({ error: 'At least one topping is required' });
+exports.getOrders = async (req, res, next) => {
+  try {
+    const { status, search } = req.query;
+    let where = {};
+    
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+    
+    if (search) {
+      where.OR = [
+        { customerName: { contains: search } },
+        { customerWhatsapp: { contains: search } }
+      ];
+    }
+    
+    const orders = await prisma.order.findMany({
+      where,
+      include: { items: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(orders);
+  } catch (err) {
+    next(err);
   }
+};
 
-  // 1️⃣ Verify topping IDs and fetch prices
-  const toppingIds = toppings.map(t => t.toppingId);
-  const dbToppings = await prisma.topping.findMany({
-    where: { id: { in: toppingIds }, isReady: true },
-  });
-  if (dbToppings.length !== toppingIds.length) {
-    return res.status(400).json({ error: 'Invalid or unavailable topping(s)' });
-  }
+exports.createOrder = async (req, res, next) => {
+  try {
+    const { customerName, customerWhatsapp, notes, totalPrice, paymentProofUrl, items } = req.body;
+    
+    if (!customerName || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Data pesanan tidak lengkap' });
+    }
 
-  // 2️⃣ Compute total price safely
-  const priceMap = new Map(dbToppings.map(t => [t.id, Number(t.price)]));
-  let totalPrice = 0;
-  for (const { toppingId, quantity } of toppings) {
-    totalPrice += priceMap.get(toppingId) * quantity;
-  }
+    // Generate Order Number
+    const count = await prisma.order.count();
+    const orderNumber = `#SBK-${String(count + 1).padStart(3, '0')}`;
 
-  // 3️⃣ Generate daily queue number
-  const queueNumber = await generateQueueNumber();
-
-  // 4️⃣ Transaction: create Order + OrderDetails
-  const order = await prisma.$transaction(async tx => {
-    const newOrder = await tx.order.create({
+    const order = await prisma.order.create({
       data: {
-        userId,
-        queueNumber,
-        totalPrice,
-        spiceLevel,
-        soupType,
+        orderNumber,
+        customerName,
+        customerWhatsapp: customerWhatsapp || '',
+        notes: notes || '',
+        totalPrice: parseFloat(totalPrice) || 0,
+        paymentProofUrl: paymentProofUrl || '',
         status: 'PENDING',
+        items: {
+          create: items.map(item => ({
+            productId: item.productId,
+            productName: item.productName || item.name || '',
+            quantity: parseInt(item.quantity, 10) || 1,
+            price: parseFloat(item.price) || 0,
+            subtotal: (parseFloat(item.price) || 0) * (parseInt(item.quantity, 10) || 1),
+            customization: item.customization ? JSON.stringify(item.customization) : null,
+            selectedVariants: item.selectedVariants ? JSON.stringify(item.selectedVariants) : null
+          }))
+        }
       },
+      include: { items: true }
+    });
+    
+    // Create Notification
+    await prisma.notification.create({
+      data: {
+        title: 'Pesanan Baru',
+        message: `Pesanan ${order.orderNumber} dari ${order.customerName} masuk!`,
+        orderId: order.id
+      }
     });
 
-    const details = toppings.map(t => ({
-      orderId: newOrder.id,
-      toppingId: t.toppingId,
-      quantity: t.quantity,
-    }));
-    await tx.orderDetail.createMany({ data: details });
-    return newOrder;
-  });
-
-  // 5️⃣ Emit real‑time event to seller dashboard
-  io.emit('new_order', {
-    orderId: order.id,
-    queueNumber: order.queueNumber,
-    totalPrice: order.totalPrice,
-    spiceLevel: order.spiceLevel,
-    soupType: order.soupType,
-    status: order.status,
-    createdAt: order.createdAt,
-  });
-
-  res.status(201).json({ order });
-}
-
-/**
- * GET /api/orders
- *   – No query: seller fetches all orders.
- *   – ?userId=xx : customer fetches his/her order history.
- */
-async function getOrders(req, res) {
-  const { userId } = req.query;
-  const filter = userId ? { userId: Number(userId) } : {};
-
-  const orders = await prisma.order.findMany({
-    where: filter,
-    include: {
-      orderDetails: { include: { topping: true } },
-      user: { select: { id: true, name: true, phoneNumber: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json(orders);
-}
-
-/**
- * PATCH /api/orders/:id/status
- * Body: { status: 'COOKING' | 'READY' }
- */
-async function updateOrderStatus(req, res) {
-  const io = req.app.get('io');
-  const orderId = Number(req.params.id);
-  const { status } = req.body;
-  if (!['COOKING', 'READY'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status value' });
+    res.status(201).json(order);
+  } catch (err) {
+    next(err);
   }
+};
 
-  const updated = await prisma.order.update({
-    where: { id: orderId },
-    data: { status },
-  });
+exports.getOrderById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { items: true }
+    });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+};
 
-  // Notify the specific customer (room name = `user_${userId}`)
-  io.to(`user_${updated.userId}`).emit('status_updated', {
-    orderId: updated.id,
-    status: updated.status,
-    updatedAt: new Date(),
-  });
+exports.updateOrderStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // e.g. 'approve', 'process', 'ready', 'complete', 'decline'
+    
+    const validActions = ['approve', 'process', 'ready', 'complete', 'decline'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ message: 'Invalid action' });
+    }
 
-  res.json(updated);
-}
+    const statusMap = {
+      approve: 'PROCESSING',
+      process: 'PROCESSING',
+      ready: 'READY',
+      complete: 'COMPLETED',
+      decline: 'DECLINED',
+    };
 
-module.exports = { createOrder, getOrders, updateOrderStatus };
+    const newStatus = statusMap[action];
+    
+    const updateData = { status: newStatus };
+    if (action === 'decline') {
+      updateData.declineReason = req.body.declineReason || '';
+    }
+
+    const order = await prisma.order.update({
+      where: { id },
+      data: updateData,
+      include: { items: true }
+    });
+    
+    if (newStatus === 'READY') {
+      await prisma.notification.create({
+        data: {
+          title: 'Pesanan Siap!',
+          message: `Pesanan ${order.orderNumber} siap diambil!`,
+          orderId: order.id
+        }
+      });
+    }
+
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+};
