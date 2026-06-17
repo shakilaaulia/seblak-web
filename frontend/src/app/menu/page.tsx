@@ -64,17 +64,6 @@ export default function MenuPage() {
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [toppingOptions, setToppingOptions] = useState<{ name: string; price: number }[]>([]);
-  const [storeOpen, setStoreOpen] = useState(true);
-
-  const fetchStoreStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/restaurant');
-      if (res.ok) {
-        const data = await res.json();
-        setStoreOpen(data.isOpen);
-      }
-    } catch {}
-  }, []);
 
   // Seblak customization
   const [customizingItem, setCustomizingItem] = useState<ApiProduct | null>(null);
@@ -147,8 +136,7 @@ export default function MenuPage() {
     }
     fetchProducts();
     fetchToppings();
-    fetchStoreStatus();
-  }, [fetchProducts, fetchToppings, fetchStoreStatus]);
+  }, [fetchProducts, fetchToppings]);
 
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
@@ -372,18 +360,6 @@ export default function MenuPage() {
         })}
       </div>
 
-      {/* Store Closed Banner */}
-      {!storeOpen && (
-        <div className="sticky top-[114px] z-20 bg-red-600 text-white text-center py-3 px-4 shadow-lg">
-          <div className="flex items-center justify-center space-x-2">
-            <span className="text-lg">🔒</span>
-            <span className="font-black text-xs tracking-wider uppercase">
-              Toko Tutup — Belum bisa order, yah!
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Product List */}
       <main className="flex-1 px-4 py-5 space-y-6 overflow-y-auto pb-32">
         {loadingProducts ? (
@@ -404,7 +380,6 @@ export default function MenuPage() {
             saveCart={saveCart}
             generateCartId={generateCartId}
             formatPrice={formatPrice}
-            storeOpen={storeOpen}
           />
         ) : (
           <div className="space-y-4">
@@ -427,11 +402,7 @@ export default function MenuPage() {
                       </div>
                     </div>
 
-                    {!storeOpen ? (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2.5 py-1.5 rounded-full">🔒</span>
-                      </div>
-                    ) : hasVariants ? (
+                    {hasVariants ? (
                       hasVariantInCart ? (
                         <div className="flex items-center space-x-3.5 bg-gray-50 border border-gray-150 rounded-full px-3 py-1.5 shadow-inner">
                           <button onClick={() => handleUpdateCartItemQty(hasVariantInCart.id, -1)} className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90">-</button>
@@ -477,16 +448,8 @@ export default function MenuPage() {
               <p className="text-md font-black text-red-600 mt-0.5">{formatPrice(calculateCartTotal())}</p>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/cart')}
-            disabled={!storeOpen}
-            className={`font-black py-3.5 px-7 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md transition-all ${
-              storeOpen
-                ? "bg-red-600 hover:bg-red-700 active:scale-98 text-white shadow-red-600/10"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
-          >
-            <span>{storeOpen ? "Checkout" : "🔒"}</span>
+          <button onClick={() => router.push('/cart')} className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-3.5 px-7 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all">
+            <span>Checkout</span>
           </button>
         </div>
       )}
@@ -783,16 +746,8 @@ export default function MenuPage() {
                   <p className="text-sm font-black text-red-600 mt-0.5">{formatPrice(calculateCartTotal())}</p>
                 </div>
               </div>
-              <button
-                onClick={() => router.push('/cart')}
-                disabled={!storeOpen}
-                className={`font-black py-3.5 px-6 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md transition-all ${
-                  storeOpen
-                    ? "bg-red-600 hover:bg-red-700 active:scale-98 text-white shadow-red-600/10"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                <span>{storeOpen ? "Checkout" : "🔒"}</span>
+              <button onClick={() => router.push('/cart')} className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-3.5 px-6 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all">
+                <span>Checkout</span>
               </button>
             </div>
           </div>

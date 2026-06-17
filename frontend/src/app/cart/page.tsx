@@ -45,7 +45,6 @@ export default function CartPage() {
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('QRIS');
-  const [storeOpen, setStoreOpen] = useState(true);
   
   // Payment proof states
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -67,7 +66,6 @@ export default function CartPage() {
         console.error('Error loading cart:', e);
       }
     }
-    fetch('/api/restaurant').then(r => r.ok && r.json()).then(d => { if (d) setStoreOpen(d.isOpen); }).catch(() => {});
   }, []);
 
   // Format price helper
@@ -427,18 +425,6 @@ export default function CartPage() {
 
       </form>
 
-      {/* Store Closed Banner */}
-      {!storeOpen && (
-        <div className="sticky z-20 bg-red-600 text-white text-center py-3 px-4 shadow-lg">
-          <div className="flex items-center justify-center space-x-2">
-            <span className="text-lg">🔒</span>
-            <span className="font-black text-xs tracking-wider uppercase">
-              Toko Tutup — Belum bisa order, yah!
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Sticky Bottom Total & Pay Bar */}
       {cart.length > 0 && (
         <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100/80 shadow-2xl px-5 py-4 flex items-center justify-between z-40">
@@ -449,14 +435,9 @@ export default function CartPage() {
 
           <button
             onClick={handleOrderSubmit}
-            disabled={!storeOpen}
-            className={`font-black py-4 px-10 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md transition-all ${
-              storeOpen
-                ? "bg-red-600 hover:bg-red-700 active:scale-98 text-white shadow-red-600/10"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
+            className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-4 px-10 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all"
           >
-            <span>{storeOpen ? "Pesan Sekarang" : "🔒 Toko Tutup"}</span>
+            <span>Pesan Sekarang</span>
           </button>
         </div>
       )}
