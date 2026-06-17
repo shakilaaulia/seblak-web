@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import qris from "../../../assets/Qris.jpeg";
 
 interface ToppingSelection {
+  id?: string;
   name: string;
+  price?: number;
   quantity: number;
 }
 

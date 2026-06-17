@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -20,6 +21,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
+app.get('/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/ingredients', ingredientRoutes);
@@ -29,7 +34,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/restaurant', restaurantRoutes);
 
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not Found' });
+  res.status(404).json({ error: 'Not Found', message: 'Not Found' });
 });
 
 app.use(errorHandler);

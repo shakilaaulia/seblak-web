@@ -1,0 +1,91 @@
+// Backup schema for the old PascalCase tables.
+// This file is only an archive/reference and is not used by the rebuilt backend.
+// Active backend schema: prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  price       Int      @default(0)
+  stock       Int      @default(0)
+  imageUrl    String   @default("")
+  categoryId  String   @default("makanan")
+  isActive    Boolean  @default(true)
+  variants    Json?
+  recipe      Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Order {
+  id                   String      @id @default(cuid())
+  orderNumber          String      @unique
+  customerName         String
+  customerWhatsapp     String      @default("")
+  notes                String      @default("")
+  totalPrice           Int         @default(0)
+  paymentProofUrl      String      @default("")
+  paymentProofFileName String      @default("")
+  status               String      @default("PENDING")
+  declineReason        String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  items                OrderItem[]
+}
+
+model OrderItem {
+  id               String @id @default(cuid())
+  order            Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId          String
+  productId        String @default("")
+  productName      String @default("")
+  quantity         Int    @default(1)
+  price            Int    @default(0)
+  subtotal         Int    @default(0)
+  customization    Json?
+  selectedVariants Json?
+}
+
+model Ingredient {
+  id         String @id @default(cuid())
+  name       String
+  remaining  Int    @default(0)
+  unit       String @default("pcs")
+  minWarning Int    @default(5)
+}
+
+model Topping {
+  id         String @id @default(cuid())
+  name       String
+  price      Int    @default(0)
+  remaining  Int    @default(0)
+  minWarning Int    @default(5)
+  unit       String @default("porsi")
+}
+
+model RestaurantSetting {
+  id      String  @id @default("rest-1")
+  name    String  @default("Seblak Mamah Zahwa")
+  address String  @default("")
+  phone   String  @default("")
+  logoUrl String  @default("")
+  isOpen  Boolean @default(true)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  orderId   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

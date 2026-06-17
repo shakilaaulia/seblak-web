@@ -77,7 +77,7 @@ export type OrderItem = {
     spiciness: string;
     soup: string;
     flavors: string[];
-    toppings: { name: string; quantity: number }[];
+    toppings: { id?: string; name: string; price?: number; quantity: number }[];
     notes: string;
   };
   selectedVariants?: { name: string; price: number; quantity: number }[];

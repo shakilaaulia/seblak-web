@@ -162,7 +162,10 @@ export default function SellerDashboard() {
   const audioBufferRef = useRef<AudioBuffer | null>(null);
 
   useEffect(() => {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    type WebkitAudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+    const AudioContextCtor = window.AudioContext || (window as WebkitAudioWindow).webkitAudioContext;
+    if (!AudioContextCtor) return;
+    const ctx = new AudioContextCtor();
     audioCtxRef.current = ctx;
     fetch("/sounds/order-notification.mp3")
       .then((r) => r.arrayBuffer())
@@ -272,9 +275,6 @@ export default function SellerDashboard() {
       });
 
       if (res.ok) {
-        await fetchOrders();
-        await fetchSummary();
-
         const actionLabels: Record<string, string> = {
           approve: "✅ Pesanan diverifikasi, sedang dimasak...",
           ready: "🍽️ Pesanan siap diambil!",
@@ -283,10 +283,18 @@ export default function SellerDashboard() {
         };
         showToast(actionLabels[action] || "Berhasil", "success");
       } else {
-        showToast("Gagal memperbarui pesanan", "error");
+        const data = await res.json().catch(() => ({}));
+        showToast(data.message || data.error || "Gagal memperbarui pesanan", "error");
       }
     } catch {
       showToast("Gagal terhubung ke server", "error");
+    } finally {
+      await Promise.all([
+        fetchOrders(),
+        fetchSummary(),
+        fetchIngredients(),
+        fetchToppings(),
+      ]);
     }
   };
 

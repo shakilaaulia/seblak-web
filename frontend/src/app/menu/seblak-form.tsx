@@ -12,8 +12,17 @@ interface ApiProduct {
 }
 
 interface ToppingSelection {
+  id?: string;
   name: string;
+  price?: number;
   quantity: number;
+}
+
+interface ToppingOption {
+  id: string;
+  name: string;
+  price: number;
+  remaining: number;
 }
 
 interface CartItem {
@@ -46,7 +55,7 @@ const FLAVOR_OPTIONS = ['Gurih', 'Asin', 'Manis'];
 
 interface Props {
   products: ApiProduct[];
-  toppingOptions: { name: string; price: number; remaining: number }[];
+  toppingOptions: ToppingOption[];
   customization: Customization;
   customQty: number;
   setCustomQty: React.Dispatch<React.SetStateAction<number>>;

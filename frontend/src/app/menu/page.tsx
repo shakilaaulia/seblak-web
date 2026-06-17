@@ -14,8 +14,17 @@ interface ApiProduct {
 }
 
 interface ToppingSelection {
+  id?: string;
   name: string;
+  price?: number;
   quantity: number;
+}
+
+interface ToppingOption {
+  id: string;
+  name: string;
+  price: number;
+  remaining: number;
 }
 
 interface Customization {
@@ -63,7 +72,7 @@ export default function MenuPage() {
 
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [toppingOptions, setToppingOptions] = useState<{ name: string; price: number; remaining: number }[]>([]);
+  const [toppingOptions, setToppingOptions] = useState<ToppingOption[]>([]);
 
   // Seblak customization
   const [customizingItem, setCustomizingItem] = useState<ApiProduct | null>(null);
@@ -289,14 +298,28 @@ export default function MenuPage() {
   };
 
   const handleToppingQty = (name: string, delta: number) => {
+    const option = toppingOptions.find(t => t.name === name);
+    const maxQty = Math.max(0, option?.remaining ?? 0);
     setCustomization(prev => {
       const existing = prev.toppings.find(t => t.name === name);
       if (existing) {
         const newQty = existing.quantity + delta;
-        if (newQty <= 0) return { ...prev, toppings: prev.toppings.filter(t => t.name !== name) };
-        return { ...prev, toppings: prev.toppings.map(t => t.name === name ? { ...t, quantity: newQty } : t) };
+        const clampedQty = Math.min(newQty, maxQty);
+        if (clampedQty <= 0) return { ...prev, toppings: prev.toppings.filter(t => t.name !== name) };
+        return {
+          ...prev,
+          toppings: prev.toppings.map(t => t.name === name ? {
+            ...t,
+            id: t.id || option?.id,
+            price: t.price ?? option?.price,
+            quantity: clampedQty
+          } : t)
+        };
       }
-      if (delta > 0) return { ...prev, toppings: [...prev.toppings, { name, quantity: 1 }] };
+      if (delta > 0 && maxQty > 0) return {
+        ...prev,
+        toppings: [...prev.toppings, { id: option?.id, name, price: option?.price, quantity: 1 }]
+      };
       return prev;
     });
   };
