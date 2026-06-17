@@ -30,6 +30,11 @@ const STATUS_COLOR: Record<string, string> = {
 export default function HomePage() {
   const router = useRouter();
   const [showTrack, setShowTrack] = useState(false);
+  const [storeOpen, setStoreOpen] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/restaurant').then(r => r.ok && r.json()).then(d => { if (d) setStoreOpen(d.isOpen); }).catch(() => {});
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [tracking, setTracking] = useState(false);
   const [trackError, setTrackError] = useState("");
@@ -114,9 +119,14 @@ export default function HomePage() {
         <div className="w-full space-y-4">
           <button
             onClick={() => router.push('/menu')}
-            className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-700/10 active:scale-[0.98] transition-all text-lg"
+            disabled={!storeOpen}
+            className={`w-full font-bold py-4 px-6 rounded-2xl shadow-lg transition-all text-lg ${
+              storeOpen
+                ? "bg-red-700 hover:bg-red-800 text-white shadow-red-700/10 active:scale-[0.98]"
+                : "bg-gray-400 text-gray-200 cursor-not-allowed"
+            }`}
           >
-            Mulai Pesan
+            {storeOpen ? "Mulai Pesan" : "🔒 Toko Tutup"}
           </button>
 
           <button

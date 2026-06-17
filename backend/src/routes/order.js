@@ -1,15 +1,12 @@
-// src/routes/order.js
 const express = require('express');
 const router = express.Router();
-const {
-  createOrder,
-  getOrders,
-  updateOrderStatus,
-} = require('../controllers/orderController');
+const ctrl = require('../controllers/orderController');
 const asyncWrapper = require('../middleware/asyncWrapper');
 
-router.post('/', asyncWrapper(createOrder));
-router.get('/', asyncWrapper(getOrders));
-router.patch('/:id/status', asyncWrapper(updateOrderStatus));
+router.get('/', asyncWrapper(ctrl.getOrders));
+router.post('/', asyncWrapper(ctrl.createOrder));
+router.get('/events', asyncWrapper(ctrl.orderEvents));
+router.get('/:id', asyncWrapper(ctrl.getOrderById));
+router.patch('/:id', asyncWrapper(ctrl.updateOrderStatus));
 
 module.exports = router;

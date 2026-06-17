@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import logo1 from "../../../assets/Logo 1.png";
 import type { OrderStatus, Product } from "@/lib/types";
 
 interface DashboardOrder {
@@ -192,12 +191,43 @@ export default function SellerDashboard() {
     }
   }, []);
 
+  const [storeOpen, setStoreOpen] = useState(true);
+
+  const fetchStoreStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/restaurant");
+      if (res.ok) {
+        const data = await res.json();
+        setStoreOpen(data.isOpen);
+      }
+    } catch {}
+  }, []);
+
+  const toggleStore = useCallback(async () => {
+    const newStatus = !storeOpen;
+    setStoreOpen(newStatus);
+    try {
+      await fetch("/api/restaurant", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOpen: newStatus }),
+      });
+      showToast(
+        newStatus ? "Toko dibuka! 🚀" : "Toko ditutup! 🔒",
+        newStatus ? "success" : "error",
+      );
+    } catch {
+      setStoreOpen(!newStatus);
+      showToast("Gagal mengubah status toko", "error");
+    }
+  }, [storeOpen, showToast]);
+
   useEffect(() => {
     setIsClient(true);
-    Promise.all([fetchOrders(), fetchSummary()]).finally(() =>
+    Promise.all([fetchOrders(), fetchSummary(), fetchStoreStatus()]).finally(() =>
       setLoading(false),
     );
-  }, [fetchOrders, fetchSummary]);
+  }, [fetchOrders, fetchSummary, fetchStoreStatus]);
 
   // SSE for real-time new order notification + sound
   useEffect(() => {
@@ -673,29 +703,18 @@ export default function SellerDashboard() {
 
       {/* Header */}
       <header className="sticky top-0 bg-red-800 text-white flex items-center justify-between px-4 py-3.5 shadow-md z-30">
+        <span className="text-sm sm:text-base font-black tracking-tight">Warung Seblak Mamah Zahwa</span>
         <button
-          onClick={() => router.push("/")}
-          className="hover:opacity-80 transition-opacity"
+          onClick={toggleStore}
+          className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider transition-all ${
+            storeOpen
+              ? "bg-emerald-500 text-white hover:bg-emerald-600"
+              : "bg-gray-500 text-white hover:bg-gray-600"
+          }`}
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
+          <span className={`w-2 h-2 rounded-full ${storeOpen ? "bg-white animate-pulse" : "bg-gray-300"}`} />
+          <span>{storeOpen ? "BUKA" : "TUTUP"}</span>
         </button>
-        <img
-          src={logo1.src}
-          alt="Seblak Mamah Zahwa"
-          className="h-8 sm:h-10 md:h-12 object-contain"
-        />
         <div className="relative">
           <div className="w-8 h-8 rounded-full border border-red-400 bg-red-600 flex items-center justify-center text-xs font-bold shadow-inner">
             P

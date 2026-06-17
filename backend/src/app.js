@@ -1,33 +1,37 @@
-// src/app.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 
-const authRoutes = require('./routes/auth');
+const productRoutes = require('./routes/product');
+const ingredientRoutes = require('./routes/ingredient');
 const toppingRoutes = require('./routes/topping');
+const restaurantRoutes = require('./routes/restaurant');
+const dashboardRoutes = require('./routes/dashboard');
+const adminRoutes = require('./routes/admin');
 const orderRoutes = require('./routes/order');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
-const { authGuard } = require('./middleware/authGuard');
 
-// Middleware
-app.use(cors({ origin: '*', credentials: true })); // TODO: restrict origin in prod
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 app.use(morgan('dev'));
 
-// Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/toppings', toppingRoutes);
-app.use('/api/orders', authGuard, orderRoutes);
+app.use('/api/restaurant', restaurantRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/orders', orderRoutes);
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
 
-// Central error handler
 app.use(errorHandler);
 
 module.exports = app;

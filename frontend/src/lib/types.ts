@@ -9,6 +9,7 @@ export type Restaurant = {
   address: string;
   phone: string;
   logoUrl: string;
+  isOpen: boolean;
 };
 
 export type Category = {

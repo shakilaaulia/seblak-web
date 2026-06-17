@@ -59,6 +59,7 @@ interface Props {
   saveCart: (items: CartItem[]) => void;
   generateCartId: () => string;
   formatPrice: (num: number) => string;
+  storeOpen: boolean;
 }
 
 export default function SeblakForm({
@@ -75,7 +76,8 @@ export default function SeblakForm({
   setEditItemId,
   saveCart,
   generateCartId,
-  formatPrice
+  formatPrice,
+  storeOpen
 }: Props) {
   const seblakProduct = products.find(p => p.categoryId === 'seblak');
   if (!seblakProduct) return <div className="text-center py-12 text-gray-400 text-sm font-bold">Menu tidak tersedia</div>;
@@ -198,7 +200,10 @@ export default function SeblakForm({
       </div>
 
       <div className="space-y-2 pb-6">
-        {(!customization.spiciness || !customization.soup || customization.toppings.length === 0) && (
+        {!storeOpen && (
+          <p className="text-[10px] font-bold text-red-500 text-center">🔒 Toko tutup, belum bisa order</p>
+        )}
+        {(!customization.spiciness || !customization.soup || customization.toppings.length === 0) && storeOpen && (
           <p className="text-[10px] font-bold text-red-500 text-center">Lengkapi kepedasan, kuah, dan minimal 1 topping</p>
         )}
         <button
@@ -230,10 +235,10 @@ export default function SeblakForm({
             setCustomization({ spiciness: '', soup: '', flavors: [], toppings: [], notes: '' });
             setCustomQty(1);
           }}
-          disabled={!customization.spiciness || !customization.soup || customization.toppings.length === 0}
+          disabled={!storeOpen || !customization.spiciness || !customization.soup || customization.toppings.length === 0}
           className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg shadow-red-600/15 transition-all flex items-center justify-center space-x-2"
         >
-          <span>Tambahkan ke Keranjang - {formatPrice(unitPrice * customQty)}</span>
+          <span>{storeOpen ? `Tambahkan ke Keranjang - ${formatPrice(unitPrice * customQty)}` : '🔒 Toko Sedang Tutup'}</span>
         </button>
       </div>
     </div>

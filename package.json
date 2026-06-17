@@ -1,0 +1,13 @@
+{
+  "name": "seblak-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && node src/index.js",
+    "dev:frontend": "cd frontend && npx next dev",
+    "dev": "npx concurrently -n BE,FE -c red,blue \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
