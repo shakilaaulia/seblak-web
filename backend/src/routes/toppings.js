@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const asyncWrapper = require('../middleware/asyncWrapper');
+const { requireAdmin } = require('../middleware/requireAdmin');
 const {
   getAllToppings,
   createTopping,
@@ -13,7 +14,7 @@ router.get('/', asyncWrapper(async (_req, res) => {
   res.json(toppings);
 }));
 
-router.post('/', asyncWrapper(async (req, res) => {
+router.post('/', requireAdmin, asyncWrapper(async (req, res) => {
   const { name, price, remaining, minWarning, unit } = req.body;
   if (!name || price === undefined) return res.status(400).json({ message: 'Name and price required' });
   const topping = await createTopping({
@@ -26,13 +27,13 @@ router.post('/', asyncWrapper(async (req, res) => {
   res.status(201).json(topping);
 }));
 
-router.patch('/:id', asyncWrapper(async (req, res) => {
+router.patch('/:id', requireAdmin, asyncWrapper(async (req, res) => {
   const updated = await updateTopping(req.params.id, req.body);
   if (!updated) return res.status(404).json({ message: 'Not found' });
   res.json(updated);
 }));
 
-router.delete('/:id', asyncWrapper(async (req, res) => {
+router.delete('/:id', requireAdmin, asyncWrapper(async (req, res) => {
   await deleteTopping(req.params.id);
   res.json({ success: true });
 }));

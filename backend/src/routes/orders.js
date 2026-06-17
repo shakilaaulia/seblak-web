@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const asyncWrapper = require('../middleware/asyncWrapper');
+const { requireAdmin } = require('../middleware/requireAdmin');
 const {
   getAllOrders,
   getOrderById,
@@ -12,18 +13,25 @@ const {
 } = require('../services/db');
 
 // GET /api/orders - list/search orders
+// Public: with ?search= (tracking by WA), Admin: without search (list all)
 router.get('/', asyncWrapper(async (req, res) => {
   const { status, search } = req.query;
-  const orders = await getAllOrders(status, search?.toLowerCase().trim());
-  const result = orders.map(o => ({
-    ...o,
-    paymentProofFileName: undefined,
-  }));
+
+  if (search) {
+    const orders = await getAllOrders(undefined, search.toLowerCase().trim());
+    return res.json(orders);
+  }
+
+  if (req.cookies?.admin_session !== 'authenticated') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const orders = await getAllOrders(status, undefined);
   res.json(orders);
 }));
 
-// GET /api/orders/events - SSE stream
-router.get('/events', asyncWrapper(async (req, res) => {
+// GET /api/orders/events - SSE stream (admin only)
+router.get('/events', requireAdmin, asyncWrapper(async (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -38,14 +46,14 @@ router.get('/events', asyncWrapper(async (req, res) => {
   });
 }));
 
-// GET /api/orders/:id - single order with items
+// GET /api/orders/:id - single order with items (public)
 router.get('/:id', asyncWrapper(async (req, res) => {
   const order = await getOrderById(req.params.id);
   if (!order) return res.status(404).json({ message: 'Order not found' });
   res.json(order);
 }));
 
-// POST /api/orders - create order
+// POST /api/orders - create order (public)
 router.post('/', asyncWrapper(async (req, res) => {
   const { customerName, customerWhatsapp, notes, totalPrice, paymentProofUrl, items } = req.body;
   if (!customerName || !items || !Array.isArray(items) || items.length === 0) {
@@ -67,7 +75,7 @@ router.post('/', asyncWrapper(async (req, res) => {
     updatedAt: now,
   };
 
-  const orderItems = items.map((item, i) => ({
+  const orderItems = items.map((item) => ({
     productId: item.productId || '',
     productName: item.productName || item.name || '',
     quantity: item.quantity || 1,
@@ -89,8 +97,8 @@ router.post('/', asyncWrapper(async (req, res) => {
   res.status(201).json(order);
 }));
 
-// PATCH /api/orders/:id - update order status
-router.patch('/:id', asyncWrapper(async (req, res) => {
+// PATCH /api/orders/:id - update order status (admin only)
+router.patch('/:id', requireAdmin, asyncWrapper(async (req, res) => {
   const { id } = req.params;
   const { action, declineReason } = req.body;
 

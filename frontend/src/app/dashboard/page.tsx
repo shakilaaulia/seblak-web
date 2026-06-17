@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import type { OrderStatus, Product } from "@/lib/types";
 
 interface DashboardOrder {
@@ -83,18 +82,6 @@ const STATUS_ACTIONS: Record<
 };
 
 export default function SellerDashboard() {
-  const router = useRouter();
-  const [authenticated, setAuthenticated] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/verify")
-      .then((res) => {
-        if (res.ok) setAuthenticated(true);
-        else router.replace("/admin");
-      })
-      .catch(() => router.replace("/admin"));
-  }, [router]);
-
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error" | "info";
@@ -115,7 +102,7 @@ export default function SellerDashboard() {
     completedToday: 0,
     totalRevenueToday: 0,
   });
-  const [isClient, setIsClient] = useState(false);
+
   const [activeTab, setActiveTab] = useState<TabId>("orders");
   const [loading, setLoading] = useState(true);
 
@@ -237,7 +224,6 @@ export default function SellerDashboard() {
   }, []);
 
   useEffect(() => {
-    setIsClient(true);
     Promise.all([fetchOrders(), fetchSummary(), fetchStoreStatus()]).finally(
       () => setLoading(false),
     );
@@ -700,8 +686,6 @@ export default function SellerDashboard() {
   const processingCount = orders.filter(
     (o) => o.status === "PROCESSING",
   ).length;
-
-  if (!isClient || !authenticated) return null;
 
   return (
     <div

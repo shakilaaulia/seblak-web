@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const asyncWrapper = require('../middleware/asyncWrapper');
+const { requireAdmin } = require('../middleware/requireAdmin');
 const { getRestaurant, updateRestaurant } = require('../services/db');
 
 router.get('/', asyncWrapper(async (_req, res) => {
@@ -8,7 +9,7 @@ router.get('/', asyncWrapper(async (_req, res) => {
   res.json(setting);
 }));
 
-router.patch('/', asyncWrapper(async (req, res) => {
+router.patch('/', requireAdmin, asyncWrapper(async (req, res) => {
   const updated = await updateRestaurant(req.body);
   res.json(updated);
 }));
