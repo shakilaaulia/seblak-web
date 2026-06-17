@@ -228,6 +228,50 @@ async function deductIngredientStock(productId, quantity) {
   }
 }
 
+// --- Topping Stock ---
+async function validateToppingStock(items) {
+  const errors = [];
+  const toppingNeeds = {};
+  for (const item of items) {
+    if (item.customization?.toppings) {
+      for (const topping of item.customization.toppings) {
+        const qty = topping.quantity * (item.quantity || 1);
+        toppingNeeds[topping.name] = (toppingNeeds[topping.name] || 0) + qty;
+      }
+    }
+  }
+  for (const [name, needed] of Object.entries(toppingNeeds)) {
+    const dbTopping = await prisma.topping.findFirst({ where: { name } });
+    if (!dbTopping) {
+      errors.push(`Topping "${name}" tidak ditemukan`);
+    } else if (dbTopping.remaining < needed) {
+      errors.push(`Stok topping "${name}" tidak mencukupi. Tersedia: ${dbTopping.remaining}, diminta: ${needed}`);
+    }
+  }
+  return errors;
+}
+
+async function deductToppingStock(items) {
+  const toppingNeeds = {};
+  for (const item of items) {
+    if (item.customization?.toppings) {
+      for (const topping of item.customization.toppings) {
+        const qty = topping.quantity * (item.quantity || 1);
+        toppingNeeds[topping.name] = (toppingNeeds[topping.name] || 0) + qty;
+      }
+    }
+  }
+  for (const [name, quantity] of Object.entries(toppingNeeds)) {
+    const dbTopping = await prisma.topping.findFirst({ where: { name } });
+    if (dbTopping) {
+      await prisma.topping.update({
+        where: { id: dbTopping.id },
+        data: { remaining: { decrement: quantity } },
+      });
+    }
+  }
+}
+
 // --- Init order counter ---
 async function initOrderCounter() {
   const lastOrder = await prisma.order.findFirst({
@@ -268,5 +312,7 @@ module.exports = {
   getAllNotifications,
   markNotificationRead,
   deductIngredientStock,
+  validateToppingStock,
+  deductToppingStock,
   initOrderCounter,
 };

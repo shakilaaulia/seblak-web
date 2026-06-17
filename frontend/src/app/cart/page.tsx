@@ -181,7 +181,8 @@ export default function CartPage() {
       });
 
       if (!res.ok) {
-        triggerToast("Gagal mengirim pesanan. Coba lagi.");
+        const errData = await res.json().catch(() => ({}));
+        triggerToast(errData.message || "Gagal mengirim pesanan. Coba lagi.");
         return;
       }
 

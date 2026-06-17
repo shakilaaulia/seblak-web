@@ -9,6 +9,8 @@ const {
   updateOrderStatus,
   getNextOrderNumber,
   deductIngredientStock,
+  validateToppingStock,
+  deductToppingStock,
   addSSEListener,
 } = require('../services/db');
 
@@ -85,14 +87,13 @@ router.post('/', asyncWrapper(async (req, res) => {
     selectedVariants: item.selectedVariants || undefined,
   }));
 
-  const order = await createOrder(orderData, orderItems);
-
-  for (const item of items) {
-    const productId = item.productId || '';
-    if (productId) {
-      await deductIngredientStock(productId, item.quantity || 1);
-    }
+  // Validate topping stock
+  const toppingErrors = await validateToppingStock(items);
+  if (toppingErrors.length > 0) {
+    return res.status(400).json({ message: toppingErrors.join('; ') });
   }
+
+  const order = await createOrder(orderData, orderItems);
 
   res.status(201).json(order);
 }));
@@ -118,6 +119,19 @@ router.patch('/:id', requireAdmin, asyncWrapper(async (req, res) => {
   const newStatus = statusMap[action];
   const updated = await updateOrderStatus(id, newStatus, declineReason);
   if (!updated) return res.status(404).json({ message: 'Order not found' });
+
+  // Deduct stock when order is approved (moved to PROCESSING)
+  if (action === 'approve' || action === 'process') {
+    const order = await getOrderById(id);
+    if (order && order.items) {
+      for (const item of order.items) {
+        if (item.productId) {
+          await deductIngredientStock(item.productId, item.quantity);
+        }
+      }
+      await deductToppingStock(order.items);
+    }
+  }
 
   res.json(updated);
 }));
