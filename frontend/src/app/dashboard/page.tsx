@@ -129,6 +129,12 @@ export default function SellerDashboard() {
       if (res.ok) {
         const data = await res.json();
         setStoreStatus(data.isOpen ? "open" : "closed");
+        setStoreSettings(prev => ({
+          ...prev,
+          storeName: data.name || prev.storeName,
+          whatsapp: data.phone || prev.whatsapp,
+          address: data.address || prev.address,
+        }));
       }
     } catch {}
   }, []);
@@ -423,7 +429,7 @@ export default function SellerDashboard() {
   // --- SETTINGS STATE ---
   const [storeSettings, setStoreSettings] = useState({
     storeName: "Seblak Mamah Zahwa",
-    whatsapp: "6281234567890",
+    whatsapp: "+6285943054626",
     address: "Jl. Pedas Manis No. 10, Bandung",
     openHour: "09:00",
     closeHour: "21:00",
@@ -954,7 +960,7 @@ export default function SellerDashboard() {
                         order.customerWhatsapp && (
                           <div className="pt-1 border-t border-gray-50">
                             <a
-                              href={`https://wa.me/${order.customerWhatsapp.replace(/[^0-9]/g, "")}?text=Halo%20${encodeURIComponent(order.customerName)}%2C%20terima%20kasih%20sudah%20memesan%20di%20Seblak%20Mamah%20Zahwa%20${order.orderNumber}`}
+                              href={`https://wa.me/${order.customerWhatsapp.replace(/[^0-9]/g, "").replace(/^0/, "62")}?text=Halo%20${encodeURIComponent(order.customerName)}%2C%20terima%20kasih%20sudah%20memesan%20di%20Seblak%20Mamah%20Zahwa%20${order.orderNumber}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center justify-center space-x-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs active:scale-[0.98] transition-all shadow-sm"
@@ -1406,9 +1412,22 @@ export default function SellerDashboard() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  showToast("Pengaturan berhasil disimpan", "success")
-                }
+                onClick={async () => {
+                  try {
+                    await fetch("/api/restaurant", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: storeSettings.storeName,
+                        phone: storeSettings.whatsapp,
+                        address: storeSettings.address,
+                      }),
+                    });
+                    showToast("Pengaturan berhasil disimpan", "success");
+                  } catch {
+                    showToast("Gagal menyimpan pengaturan", "error");
+                  }
+                }}
                 className="w-full bg-red-700 hover:bg-red-800 text-white font-black py-3.5 px-6 rounded-2xl text-xs tracking-wider active:scale-[0.98] transition-all"
               >
                 Simpan Pengaturan
