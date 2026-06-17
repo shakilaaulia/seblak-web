@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ADMIN_PIN = '123456';
+const ADMIN_PIN = process.env.ADMIN_PIN || '123456';
 
 export async function POST(req: Request) {
   try {
@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       const res = NextResponse.json({ authenticated: true });
       res.cookies.set('admin_session', 'true', {
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 60 * 60 * 8,
         path: '/',

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getOrdersByStatus, getOrderItems, addOrder, getNextOrderNumber, deductIngredientStock } from '@/lib/store';
-import type { Order, OrderItem } from '@/lib/types';
+import { cookies } from 'next/headers';
+import prisma from '@/lib/prisma';
+import { generateQueueNumber } from '@/lib/queue';
+import { emitNewOrder } from '@/lib/sse';
+import type { OrderItem } from '@/lib/types';
 
 type OrderInputItem = {
   productId?: string;
@@ -13,24 +16,40 @@ type OrderInputItem = {
 };
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get('status') || 'all';
-  const search = searchParams.get('search')?.toLowerCase().trim();
-
-  let orders = getOrdersByStatus(status);
-
-  if (search) {
-    orders = orders.filter(o =>
-      o.customerName.toLowerCase().includes(search) ||
-      (o.customerWhatsapp || '').toLowerCase().includes(search)
-    );
+  const cookieStore = await cookies();
+  const session = cookieStore.get('admin_session');
+  if (session?.value !== 'true') {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  const result = orders.map(o => ({
-    ...o,
-    items: getOrderItems(o.id),
-  }));
-  return NextResponse.json(result);
+  try {
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status') || 'all';
+    const search = searchParams.get('search')?.toLowerCase().trim();
+
+    let where: any = {};
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { customerWhatsapp: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: { items: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return NextResponse.json(orders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
@@ -42,49 +61,50 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Data pesanan tidak lengkap' }, { status: 400 });
     }
 
-    const id = `ord-${Date.now()}`;
-    const orderNumber = getNextOrderNumber();
-    const now = new Date().toISOString();
+    const orderNumber = await generateQueueNumber();
 
-    const order: Order = {
-      id,
-      orderNumber,
-      customerName,
-      customerWhatsapp: customerWhatsapp || '',
-      notes: notes || '',
-      totalPrice: totalPrice || 0,
-      paymentProofUrl: paymentProofUrl || '',
-      status: 'PENDING',
-      createdAt: now,
-      updatedAt: now,
-    };
+    const order = await prisma.order.create({
+      data: {
+        orderNumber,
+        customerName,
+        customerWhatsapp: customerWhatsapp || '',
+        notes: notes || '',
+        totalPrice: parseFloat(totalPrice) || 0,
+        paymentProofUrl: paymentProofUrl || '',
+        status: 'PENDING',
+        items: {
+          create: items.map((item: OrderInputItem) => ({
+            productId: item.productId || '',
+            productName: item.productName || item.name || '',
+            quantity: parseInt(item.quantity as any, 10) || 1,
+            price: parseFloat(item.price as any) || 0,
+            subtotal: (parseFloat(item.price as any) || 0) * (parseInt(item.quantity as any, 10) || 1),
+            customization: item.customization ? JSON.stringify(item.customization) : null,
+            selectedVariants: item.selectedVariants ? JSON.stringify(item.selectedVariants) : null
+          }))
+        }
+      },
+      include: { items: true }
+    });
 
-    const orderItems: OrderItem[] = items.map((item: OrderInputItem, i: number) => ({
-      id: `oi-${id}-${i}`,
-      orderId: id,
-      productId: item.productId || '',
-      productName: item.productName || item.name || '',
-      quantity: item.quantity || 1,
-      price: item.price || 0,
-      subtotal: (item.price || 0) * (item.quantity || 1),
-      customization: item.customization || undefined,
-      selectedVariants: item.selectedVariants || undefined,
-    }));
-
-    addOrder(order, orderItems);
-
-    for (const item of items) {
-      const productId = item.productId || '';
-      if (productId) {
-        deductIngredientStock(productId, item.quantity || 1);
+    await prisma.notification.create({
+      data: {
+        title: 'Pesanan Baru',
+        message: `Pesanan ${order.orderNumber} dari ${order.customerName} masuk!`,
+        orderId: order.id
       }
+    });
+
+    // Notify SSE stream safely
+    try {
+      emitNewOrder(order);
+    } catch (sseErr) {
+      console.warn('SSE notification failed, order created anyway:', sseErr);
     }
 
-    return NextResponse.json({
-      ...order,
-      items: orderItems,
-    }, { status: 201 });
-  } catch {
+    return NextResponse.json(order, { status: 201 });
+  } catch (error) {
+    console.error('Error creating order:', error);
     return NextResponse.json({ message: 'Invalid request' }, { status: 400 });
   }
 }

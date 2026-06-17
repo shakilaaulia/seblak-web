@@ -3,69 +3,136 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  CUSTOMER
-  SELLER
+model Category {
+  id       String    @id @default(uuid())
+  name     String
+  products Product[]
+
+  @@index([name])
 }
 
-enum OrderStatus {
-  PENDING
-  COOKING
-  READY
-}
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  stock       Int
+  imageUrl    String
+  categoryId  String
+  isActive    Boolean  @default(true)
 
-model User {
-  id          Int      @id @default(autoincrement())
-  name        String?
-  phoneNumber String   @unique
-  role        Role
-  createdAt   DateTime @default(now())
-  orders      Order[]
+  category    Category @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+  variants    ProductVariant[]
+  recipe      ProductRecipeIngredient[]
 
-  @@index([phoneNumber])
-}
-
-model Topping {
-  id          Int       @id @default(autoincrement())
-  toppingName String
-  price       Decimal   @db.Decimal(10, 2)
-  isReady     Boolean   @default(true)
-
-  orderDetails OrderDetail[]
-
-  @@index([toppingName])
+  @@index([categoryId])
 }
 
 model Order {
-  id          Int          @id @default(autoincrement())
-  user        User         @relation(fields: [userId], references: [id])
-  userId      Int
-  queueNumber String       @unique
-  totalPrice  Decimal      @db.Decimal(10, 2)
-  spiceLevel  Int
-  soupType    String
-  status      OrderStatus  @default(PENDING)
-  createdAt   DateTime     @default(now())
+  id               String       @id @default(uuid())
+  orderNumber      String       @unique
+  customerName     String
+  customerWhatsapp String?
+  notes            String?
+  totalPrice       Float
+  paymentProofUrl  String?
+  status           String       @default("PENDING")
+  declineReason    String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  orderDetails OrderDetail[]
+  items            OrderItem[]
+  notifications    Notification[]
 
-  @@index([userId])
   @@index([status])
   @@index([createdAt])
 }
 
-model OrderDetail {
-  id        Int     @id @default(autoincrement())
-  order     Order   @relation(fields: [orderId], references: [id])
-  orderId   Int
-  topping   Topping @relation(fields: [toppingId], references: [id])
-  toppingId Int
-  quantity  Int
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  price       Float
+  subtotal    Float
+  customization    String?
+  selectedVariants String?
+
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id])
 
   @@index([orderId])
-  @@index([toppingId])
+  @@index([productId])
+}
+
+model Restaurant {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  address     String
+  phone       String
+  logoUrl     String
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  orderId   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([isRead])
+}
+
+model Ingredient {
+  id         String @id @default(uuid())
+  name       String
+  remaining  Float
+  unit       String
+  minWarning Float
+
+  recipes    ProductRecipeIngredient[]
+}
+
+model Topping {
+  id         String @id @default(uuid())
+  name       String
+  price      Float
+  remaining  Float
+  minWarning Float
+  unit       String
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  name      String
+  price     Float
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductRecipeIngredient {
+  id           String     @id @default(uuid())
+  productId    String
+  ingredientId String
+  quantity     Float
+
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([ingredientId])
 }

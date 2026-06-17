@@ -7,89 +7,94 @@ const orderItems: OrderItem[] = [];
 const restaurant: Restaurant = {
   id: 'rest-1',
   name: 'Seblak Mamah Zahwa',
-  description: '',
-  address: '',
-  phone: '',
-  logoUrl: '',
+  description: 'Seblak terenak se-Bandung Raya',
+  address: 'Jl. Contoh No. 123',
+  phone: '081234567890',
+  logoUrl: '/logo.png',
 };
 
+// ====== FOOD IMAGES ======
+const FI = [
+  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80',
+  'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400&q=80',
+  'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&q=80',
+  'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=400&q=80',
+  'https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=400&q=80',
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80',
+  'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80',
+  'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=400&q=80',
+];
+const DI = [
+  'https://images.unsplash.com/photo-1497534446932-c925b458314e?w=400&q=80',
+  'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=400&q=80',
+  'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400&q=80',
+  'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=400&q=80',
+  'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&q=80',
+  'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400&q=80',
+];
+
 const products: Product[] = [
-  {
-    id: 'seblak-1',
-    name: 'Seblak Mamah Zahwa',
-    description: 'Seblak khas Mamah Zahwa dengan bumbu pedas pilihan',
-    price: 0,
-    stock: 999,
-    imageUrl: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'seblak',
-    isActive: true,
-  },
-  {
-    id: 'm1',
-    name: 'Cilok Goang',
-    description: 'Cilok dengan kuah pedas segar',
-    price: 10000,
-    stock: 50,
-    imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'makanan',
-    isActive: true,
-  },
-  {
-    id: 'm2',
-    name: 'Mie Bakso',
-    description: 'Mie basah dengan bakso sapi',
-    price: 13000,
-    stock: 50,
-    imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'makanan',
-    isActive: true,
-  },
-  {
-    id: 'm3',
-    name: 'Mie Jeletot',
-    description: 'Mie pedas jeletot dengan topping ayam suwir',
-    price: 10000,
-    stock: 50,
-    imageUrl: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'makanan',
-    isActive: true,
-  },
-  {
-    id: 'd1',
-    name: 'Pop Ice',
-    description: 'Minuman bubuk pop ice dengan pilihan varian rasa',
-    price: 0,
-    stock: 100,
-    imageUrl: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'minuman',
-    isActive: true,
-    variants: [
-      { name: 'Coklat', price: 5000 },
-      { name: 'Vanilla', price: 5000 },
-      { name: 'Stroberi', price: 5000 },
-      { name: 'Mangga', price: 5000 },
-    ],
-  },
-  {
-    id: 'd2',
-    name: 'Nutrisari',
-    description: 'Minuman bubuk jeruk segar',
-    price: 5000,
-    stock: 100,
-    imageUrl: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'minuman',
-    isActive: true,
-  },
-  {
-    id: 'd3',
-    name: 'Beng-beng Drink',
-    description: 'Minuman coklat beng-beng',
-    price: 6000,
-    stock: 100,
-    imageUrl: 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?q=80&w=400&auto=format&fit=crop',
-    categoryId: 'minuman',
-    isActive: true,
-  },
+  // ===== SEBLAK =====
+  { id: 'seblak-1', name: 'Seblak Mamah Zahwa', description: 'Seblak khas dengan bumbu rahasia', price: 0, stock: 999, imageUrl: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=400&q=80', categoryId: 'seblak', isActive: true },
+
+  // ===== MAKANAN — Seblak Bebas Toping =====
+  { id: 'm-cilok',       name: 'Cilok Goang',              description: 'Seblak Bebas Toping', price: 10000, stock: 100, imageUrl: FI[0], categoryId: 'makanan', isActive: true },
+  { id: 'm-mie-ayam',    name: 'Mie Ayam',                 description: 'Seblak Bebas Toping', price: 10000, stock: 100, imageUrl: FI[1], categoryId: 'makanan', isActive: true },
+  { id: 'm-mie-ayam-ckr',name: 'Mie Ayam + Ceker',         description: 'Seblak Bebas Toping', price: 12000, stock: 100, imageUrl: FI[2], categoryId: 'makanan', isActive: true },
+  { id: 'm-mie-bakso',   name: 'Mie Bakso',                description: 'Seblak Bebas Toping', price: 13000, stock: 100, imageUrl: FI[3], categoryId: 'makanan', isActive: true },
+  { id: 'm-mie-jeletot', name: 'Mie Jeletot',              description: 'Seblak Bebas Toping', price: 10000, stock: 100, imageUrl: FI[4], categoryId: 'makanan', isActive: true },
+  { id: 'm-kwetiaw-jlt', name: 'Kwetiaw Jeletot',          description: 'Seblak Bebas Toping', price: 10000, stock: 100, imageUrl: FI[5], categoryId: 'makanan', isActive: true },
+  { id: 'm-spatula',     name: 'Spatula / Spaghetti Tulang',description: 'Seblak Bebas Toping', price: 10000, stock: 100, imageUrl: FI[6], categoryId: 'makanan', isActive: true },
+  { id: 'm-makroni',     name: 'Makroni Basah + Telor',    description: 'Seblak Bebas Toping', price: 8000,  stock: 100, imageUrl: FI[7], categoryId: 'makanan', isActive: true },
+  { id: 'm-ceker-mercon',name: 'Ceker Mercon',             description: 'Seblak Bebas Toping', price: 8000,  stock: 100, imageUrl: FI[0], categoryId: 'makanan', isActive: true },
+  { id: 'm-popmie-mini', name: 'Pop Mie Mini',             description: 'Seblak Bebas Toping', price: 5000,  stock: 100, imageUrl: FI[1], categoryId: 'makanan', isActive: true },
+  { id: 'm-popmie-besar',name: 'Pop Mie Besar',            description: 'Seblak Bebas Toping', price: 7000,  stock: 100, imageUrl: FI[2], categoryId: 'makanan', isActive: true },
+  { id: 'm-mie-gelas',   name: 'Mie Gelas Pake Cup',       description: 'Seblak Bebas Toping', price: 3000,  stock: 100, imageUrl: FI[3], categoryId: 'makanan', isActive: true },
+  { id: 'm-cirawang',    name: 'Cirawang Misdasem',        description: 'Seblak Bebas Toping', price: 15000, stock: 100, imageUrl: FI[4], categoryId: 'makanan', isActive: true },
+
+  // ===== MAKANAN — Cireng Isi =====
+  { id: 'm-cireng-jando',name: 'Cireng Isi Jando',         description: 'Cireng Isi', price: 1000, stock: 100, imageUrl: FI[5], categoryId: 'makanan', isActive: true },
+  { id: 'm-cireng-ati',  name: 'Cireng Isi Ati',           description: 'Cireng Isi', price: 1000, stock: 100, imageUrl: FI[6], categoryId: 'makanan', isActive: true },
+  { id: 'm-cireng-keju', name: 'Cireng Isi Keju',          description: 'Cireng Isi', price: 1000, stock: 100, imageUrl: FI[7], categoryId: 'makanan', isActive: true },
+  { id: 'm-cireng-bs',   name: 'Cireng Isi Bakso + Sosis', description: 'Cireng Isi', price: 1000, stock: 100, imageUrl: FI[0], categoryId: 'makanan', isActive: true },
+
+  // ===== MAKANAN — Cemilan & Lainnya =====
+  { id: 'm-tahu-jablay', name: 'Tahu Jablay',              description: 'Cemilan & Lainnya', price: 5000,  stock: 100, imageUrl: FI[1], categoryId: 'makanan', isActive: true },
+  { id: 'm-cibay',       name: 'Cibay',                    description: 'Cemilan & Lainnya', price: 2000,  stock: 100, imageUrl: FI[2], categoryId: 'makanan', isActive: true },
+  { id: 'm-basreng',     name: 'Basreng 1 Porsi',          description: 'Cemilan & Lainnya', price: 5000,  stock: 100, imageUrl: FI[3], categoryId: 'makanan', isActive: true },
+  { id: 'm-cimol',       name: 'Cimol 1 Porsi',            description: 'Cemilan & Lainnya', price: 5000,  stock: 100, imageUrl: FI[4], categoryId: 'makanan', isActive: true },
+  { id: 'm-otakotak',    name: 'Otak-Otak 1 Porsi',        description: 'Cemilan & Lainnya', price: 5000,  stock: 100, imageUrl: FI[5], categoryId: 'makanan', isActive: true },
+  { id: 'm-otakotak-oren',name:'Otak-Otak Oren',           description: 'Cemilan & Lainnya', price: 1000,  stock: 100, imageUrl: FI[6], categoryId: 'makanan', isActive: true },
+  { id: 'm-otakotak-keju',name:'Otak-Otak Keju Lumer',     description: 'Cemilan & Lainnya', price: 5000,  stock: 100, imageUrl: FI[7], categoryId: 'makanan', isActive: true },
+  { id: 'm-karedok-bsr', name: 'Karedok Basreng',          description: 'Cemilan & Lainnya', price: 6000,  stock: 100, imageUrl: FI[0], categoryId: 'makanan', isActive: true },
+  { id: 'm-karedok-oo',  name: 'Karedok Otak-Otak',        description: 'Cemilan & Lainnya', price: 6000,  stock: 100, imageUrl: FI[1], categoryId: 'makanan', isActive: true },
+  { id: 'm-karedok-cimol',name:'Karedok Cimol',            description: 'Cemilan & Lainnya', price: 6000,  stock: 100, imageUrl: FI[2], categoryId: 'makanan', isActive: true },
+  { id: 'm-citul',       name: 'Citul',                    description: 'Cemilan & Lainnya', price: 1000,  stock: 100, imageUrl: FI[3], categoryId: 'makanan', isActive: true },
+  { id: 'm-sukro',       name: 'Sukro Cikur',              description: 'Cemilan & Lainnya', price: 1000,  stock: 100, imageUrl: FI[4], categoryId: 'makanan', isActive: true },
+  { id: 'm-pilus',       name: 'Pilus',                    description: 'Cemilan & Lainnya', price: 1000,  stock: 100, imageUrl: FI[5], categoryId: 'makanan', isActive: true },
+  { id: 'm-cireng-kuah', name: 'Cireng Kuah',              description: 'Cemilan & Lainnya', price: 10000, stock: 100, imageUrl: FI[6], categoryId: 'makanan', isActive: true },
+  { id: 'm-martabak',    name: 'Martabak Telor',           description: 'Cemilan & Lainnya', price: 8000,  stock: 100, imageUrl: FI[7], categoryId: 'makanan', isActive: true },
+  { id: 'm-cireng-lmkt', name: 'Cireng Lamokot',           description: 'Cemilan & Lainnya', price: 7000,  stock: 100, imageUrl: FI[0], categoryId: 'makanan', isActive: true },
+  { id: 'm-kwetiaw-jntr',name: 'Kwetiaw Jontor',           description: 'Cemilan & Lainnya', price: 10000, stock: 100, imageUrl: FI[1], categoryId: 'makanan', isActive: true },
+  { id: 'm-cigor',       name: 'Cigor',                    description: 'Cemilan & Lainnya', price: 7000,  stock: 100, imageUrl: FI[2], categoryId: 'makanan', isActive: true },
+  { id: 'm-pisang-keju', name: 'Pisang Keju',              description: 'Cemilan & Lainnya', price: 7000,  stock: 100, imageUrl: FI[3], categoryId: 'makanan', isActive: true },
+  { id: 'm-pisang-kj-ck',name: 'Pisang Keju Coklat',       description: 'Cemilan & Lainnya', price: 10000, stock: 100, imageUrl: FI[4], categoryId: 'makanan', isActive: true },
+
+  // ===== MINUMAN =====
+  { id: 'd-pop-ice',     name: 'Pop Ice',                  description: 'Minuman', price: 5000, stock: 100, imageUrl: DI[0], categoryId: 'minuman', isActive: true },
+  { id: 'd-nutrisari',   name: 'Nutrisari',                description: 'Minuman', price: 5000, stock: 100, imageUrl: DI[1], categoryId: 'minuman', isActive: true },
+  { id: 'd-bengbeng',    name: 'Beng-Beng Drink',          description: 'Minuman', price: 6000, stock: 100, imageUrl: DI[2], categoryId: 'minuman', isActive: true },
+  { id: 'd-teh-tarik',   name: 'Teh Tarik',                description: 'Minuman', price: 6000, stock: 100, imageUrl: DI[3], categoryId: 'minuman', isActive: true },
+  { id: 'd-chocolatos',  name: 'Chocolatos',               description: 'Minuman', price: 6000, stock: 100, imageUrl: DI[4], categoryId: 'minuman', isActive: true },
+  { id: 'd-milo',        name: 'Milo',                     description: 'Minuman', price: 6000, stock: 100, imageUrl: DI[5], categoryId: 'minuman', isActive: true },
+  { id: 'd-creamy-latte',name: 'Creamy Latte',             description: 'Minuman', price: 6000, stock: 100, imageUrl: DI[0], categoryId: 'minuman', isActive: true },
+  { id: 'd-tea-jus',     name: 'Tea Jus (pakai cup)',      description: 'Minuman', price: 3000, stock: 100, imageUrl: DI[1], categoryId: 'minuman', isActive: true },
+  { id: 'd-teh-sisri',   name: 'Teh Sisri',                description: 'Minuman', price: 2000, stock: 100, imageUrl: DI[2], categoryId: 'minuman', isActive: true },
+  { id: 'd-finto',       name: 'Finto',                    description: 'Minuman', price: 2000, stock: 100, imageUrl: DI[3], categoryId: 'minuman', isActive: true },
+  { id: 'd-cocorio',     name: 'Cocorio',                  description: 'Minuman', price: 2000, stock: 100, imageUrl: DI[4], categoryId: 'minuman', isActive: true },
+  { id: 'd-top-ice',     name: 'Top Ice',                  description: 'Minuman', price: 2000, stock: 100, imageUrl: DI[5], categoryId: 'minuman', isActive: true },
+  { id: 'd-marimas',     name: 'Marimas',                  description: 'Minuman', price: 2000, stock: 100, imageUrl: DI[0], categoryId: 'minuman', isActive: true },
+  { id: 'd-jasjus',      name: 'Jasjus',                   description: 'Minuman', price: 2000, stock: 100, imageUrl: DI[1], categoryId: 'minuman', isActive: true },
 ];
 
 const ingredients: Ingredient[] = [
@@ -104,10 +109,11 @@ const ingredients: Ingredient[] = [
 ];
 
 const toppings: Topping[] = [
-  { id: 't1', name: 'Kerupuk', price: 2000, remaining: 20, minWarning: 5, unit: 'porsi' },
-  { id: 't2', name: 'Siomay', price: 3000, remaining: 15, minWarning: 5, unit: 'porsi' },
-  { id: 't3', name: 'Ceker Ayam', price: 5000, remaining: 10, minWarning: 3, unit: 'porsi' },
-  { id: 't4', name: 'Sosis', price: 4000, remaining: 12, minWarning: 4, unit: 'porsi' },
+  { id: 't1', name: 'Kerupuk Oren', price: 1000, remaining: 100, minWarning: 10, unit: 'porsi' },
+  { id: 't2', name: 'Makaroni',     price: 1000, remaining: 100, minWarning: 10, unit: 'porsi' },
+  { id: 't3', name: 'Mie Kuning',   price: 1500, remaining: 100, minWarning: 10, unit: 'porsi' },
+  { id: 't4', name: 'Sosis',        price: 2000, remaining: 100, minWarning: 10, unit: 'porsi' },
+  { id: 't5', name: 'Ceker',        price: 3000, remaining: 100, minWarning: 10, unit: 'porsi' },
 ];
 
 const notifications: Notification[] = [];

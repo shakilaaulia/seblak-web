@@ -10,13 +10,13 @@ async function generateQueueNumber() {
   const prefix = `#SBK-${today}-`;
 
   const latest = await prisma.order.findFirst({
-    where: { queueNumber: { startsWith: prefix } },
+    where: { orderNumber: { startsWith: prefix } },
     orderBy: { createdAt: 'desc' },
   });
 
   let seq = 1;
   if (latest) {
-    const lastSeq = parseInt(latest.queueNumber.split('-').pop(), 10);
+    const lastSeq = parseInt(latest.orderNumber.split('-').pop(), 10);
     seq = lastSeq + 1;
   }
 

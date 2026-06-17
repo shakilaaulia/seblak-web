@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
-import { updateOrderStatus, getOrderById, getOrderItems } from '@/lib/store';
+import { cookies } from 'next/headers';
+import prisma from '@/lib/prisma';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('admin_session');
+  if (session?.value !== 'true') {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     const { action, declineReason } = await req.json();
@@ -20,29 +27,50 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     };
 
     const newStatus = statusMap[action];
-    const updated = updateOrderStatus(id, newStatus, declineReason);
-
-    if (!updated) {
-      return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+    
+    const updateData: any = { status: newStatus };
+    if (action === 'decline') {
+      updateData.declineReason = declineReason || '';
     }
 
-    return NextResponse.json({
-      ...updated,
-      items: getOrderItems(updated.id),
+    const order = await prisma.order.update({
+      where: { id },
+      data: updateData,
+      include: { items: true }
     });
-  } catch {
-    return NextResponse.json({ message: 'Invalid request' }, { status: 400 });
+
+    if (newStatus === 'READY') {
+      await prisma.notification.create({
+        data: {
+          title: 'Pesanan Siap!',
+          message: `Pesanan ${order.orderNumber} siap diambil!`,
+          orderId: order.id
+        }
+      });
+    }
+
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error('Error updating order:', error);
+    return NextResponse.json({ message: 'Invalid request or order not found' }, { status: 400 });
   }
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const order = getOrderById(id);
-  if (!order) {
-    return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { items: true }
+    });
+    
+    if (!order) {
+      return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+    }
+    
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
-  return NextResponse.json({
-    ...order,
-    items: getOrderItems(order.id),
-  });
 }
