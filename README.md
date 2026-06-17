@@ -30,6 +30,10 @@ Backend berada di dalam folder `backend/`. Aplikasi ini menyediakan API untuk fr
    DATABASE_URL="postgresql://username:password@localhost:5432/nama_database?schema=public"
    PORT=3001
    ```
+
+   ```
+   Simplenya minta anas .env nya
+   ```
    *(Ganti `username`, `password`, dan `nama_database` sesuai dengan konfigurasi PostgreSQL di komputer Anda).*
 
 4. **Sinkronisasi Database (Prisma):**
