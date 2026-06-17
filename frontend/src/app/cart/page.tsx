@@ -52,6 +52,10 @@ export default function CartPage() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
+  // Store status
+  const [storeOpen, setStoreOpen] = useState(true);
+  const [storeLoading, setStoreLoading] = useState(true);
+
   // Form validation state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -66,6 +70,10 @@ export default function CartPage() {
         console.error('Error loading cart:', e);
       }
     }
+    fetch('/api/restaurant')
+      .then(r => r.json())
+      .then(data => { setStoreOpen(data.isOpen); setStoreLoading(false); })
+      .catch(() => setStoreLoading(false));
   }, []);
 
   // Format price helper
@@ -213,6 +221,13 @@ export default function CartPage() {
         <div className="w-6 h-6" /> {/* Spacer to center the title */}
       </header>
 
+      {/* Store Closed Banner */}
+      {!storeLoading && !storeOpen && (
+        <div className="bg-amber-500 text-white text-center py-3 px-4 text-xs font-bold">
+          🕐 Warung sedang tutup. Kamu belum bisa melakukan pemesanan saat ini.
+        </div>
+      )}
+
       {/* Form Container */}
       <form onSubmit={handleOrderSubmit} className="flex-1 px-4 py-5 space-y-5 overflow-y-auto pb-32">
         
@@ -349,24 +364,14 @@ export default function CartPage() {
             </svg>
           </div>
 
-          {/* QRIS Code Graphic Mock (for design value) */}
+          {/* QRIS Code Image */}
           <div className="flex flex-col items-center py-2 bg-slate-50 rounded-2xl border border-gray-100">
             <p className="text-[9px] font-black tracking-widest text-gray-400 uppercase mb-2">QRIS SEBLAK MAMAH ZAHWA</p>
-            <div className="w-32 h-32 bg-white p-2 rounded-xl shadow-inner border border-gray-100 flex items-center justify-center">
-              {/* Fake barcode/QR matrix representation using simple CSS blocks */}
-              <div className="grid grid-cols-5 gap-1.5 w-full h-full opacity-75">
-                {[...Array(25)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`rounded ${
-                      (i * 7 + 13) % 5 === 0 || i % 3 === 0 || i === 0 || i === 4 || i === 20 || i === 24
-                        ? 'bg-gray-800'
-                        : 'bg-transparent'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
+            <img
+              src="/images/qris-placeholder.svg"
+              alt="QRIS Seblak Mamah Zahwa"
+              className="w-48 h-48 object-contain"
+            />
           </div>
 
           {/* Hidden file input */}
@@ -435,9 +440,14 @@ export default function CartPage() {
 
           <button
             onClick={handleOrderSubmit}
-            className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-4 px-10 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all"
+            disabled={!storeOpen}
+            className={`font-black py-4 px-10 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md transition-all ${
+              !storeOpen
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-red-600 hover:bg-red-700 active:scale-98 text-white shadow-red-600/10'
+            }`}
           >
-            <span>Pesan Sekarang</span>
+            <span>{!storeOpen ? 'Toko Tutup' : 'Pesan Sekarang'}</span>
           </button>
         </div>
       )}

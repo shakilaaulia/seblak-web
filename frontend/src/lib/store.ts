@@ -11,6 +11,7 @@ const restaurant: Restaurant = {
   address: '',
   phone: '',
   logoUrl: '',
+  isOpen: true,
 };
 
 const products: Product[] = [

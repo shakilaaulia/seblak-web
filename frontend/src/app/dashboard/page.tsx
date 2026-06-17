@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import logo1 from "../../../assets/Logo 1.png";
 import type { OrderStatus, Product } from "@/lib/types";
 
 interface DashboardOrder {
@@ -120,6 +119,43 @@ export default function SellerDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("orders");
   const [loading, setLoading] = useState(true);
 
+  // Store status
+  const [storeStatus, setStoreStatus] = useState<"open" | "closed">("open");
+  const [storeStatusLoading, setStoreStatusLoading] = useState(false);
+
+  const fetchStoreStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/restaurant");
+      if (res.ok) {
+        const data = await res.json();
+        setStoreStatus(data.isOpen ? "open" : "closed");
+      }
+    } catch {}
+  }, []);
+
+  const handleToggleStatus = async () => {
+    const newStatus = storeStatus === "open" ? "closed" : "open";
+    setStoreStatusLoading(true);
+    try {
+      const res = await fetch("/api/restaurant", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOpen: newStatus === "open" }),
+      });
+      if (res.ok) {
+        setStoreStatus(newStatus);
+        showToast(
+          `toko: ${newStatus === "open" ? "Buka" : "Tutup"}`,
+          "success",
+        );
+      }
+    } catch {
+      showToast("Gagal mengubah status toko", "error");
+    } finally {
+      setStoreStatusLoading(false);
+    }
+  };
+
   // Sound effect for new orders
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
@@ -128,9 +164,11 @@ export default function SellerDashboard() {
   useEffect(() => {
     const init = async () => {
       try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const ctx = new (
+          window.AudioContext || (window as any).webkitAudioContext
+        )();
         audioCtxRef.current = ctx;
-        const res = await fetch('/sounds/order-notification.mp3');
+        const res = await fetch("/sounds/order-notification.mp3");
         const buf = await res.arrayBuffer();
         const decoded = await ctx.decodeAudioData(buf);
         audioBufferRef.current = decoded;
@@ -141,7 +179,7 @@ export default function SellerDashboard() {
 
   const resumeAudio = useCallback(() => {
     const ctx = audioCtxRef.current;
-    if (ctx && ctx.state === 'suspended') {
+    if (ctx && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
     }
   }, []);
@@ -150,7 +188,7 @@ export default function SellerDashboard() {
     const ctx = audioCtxRef.current;
     const buf = audioBufferRef.current;
     if (!ctx || !buf) return;
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === "suspended") ctx.resume();
     const source = ctx.createBufferSource();
     source.buffer = buf;
     const gain = ctx.createGain();
@@ -194,15 +232,15 @@ export default function SellerDashboard() {
 
   useEffect(() => {
     setIsClient(true);
-    Promise.all([fetchOrders(), fetchSummary()]).finally(() =>
-      setLoading(false),
+    Promise.all([fetchOrders(), fetchSummary(), fetchStoreStatus()]).finally(
+      () => setLoading(false),
     );
-  }, [fetchOrders, fetchSummary]);
+  }, [fetchOrders, fetchSummary, fetchStoreStatus]);
 
   // SSE for real-time new order notification + sound
   useEffect(() => {
-    const es = new EventSource('/api/orders/events');
-    es.addEventListener('new-order', () => {
+    const es = new EventSource("/api/orders/events");
+    es.addEventListener("new-order", () => {
       fetchOrders();
       fetchSummary();
       playNewOrderSound();
@@ -211,7 +249,11 @@ export default function SellerDashboard() {
     return () => es.close();
   }, [fetchOrders, fetchSummary, playNewOrderSound]);
 
-  const handleOrderAction = async (orderId: string, action: string, extra?: Record<string, string>) => {
+  const handleOrderAction = async (
+    orderId: string,
+    action: string,
+    extra?: Record<string, string>,
+  ) => {
     try {
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
@@ -416,7 +458,7 @@ export default function SellerDashboard() {
   const [newIngredientName, setNewIngredientName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [confirmDecline, setConfirmDecline] = useState<string | null>(null);
-  const [declineReason, setDeclineReason] = useState('');
+  const [declineReason, setDeclineReason] = useState("");
 
   const fetchMenuProducts = useCallback(async () => {
     try {
@@ -656,7 +698,10 @@ export default function SellerDashboard() {
   if (!isClient || !authenticated) return null;
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 min-h-screen pb-24 relative select-none" onClick={resumeAudio}>
+    <div
+      className="flex-1 flex flex-col bg-slate-50 min-h-screen pb-24 relative select-none"
+      onClick={resumeAudio}
+    >
       {toast && (
         <div
           className={`fixed top-5 inset-x-4 z-50 text-xs text-center py-3.5 px-5 rounded-xl shadow-2xl font-bold transition-all animate-bounce ${
@@ -673,38 +718,31 @@ export default function SellerDashboard() {
 
       {/* Header */}
       <header className="sticky top-0 bg-red-800 text-white flex items-center justify-between px-4 py-3.5 shadow-md z-30">
-        <button
-          onClick={() => router.push("/")}
-          className="hover:opacity-80 transition-opacity"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <span className="text-white font-bold text-lg tracking-wide">
+          Warung Seblak Mamah Zahwa
+        </span>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleToggleStatus}
+            disabled={storeStatusLoading}
+            className={`px-3 py-1.5 rounded-full text-xs font-black transition-all ${
+              storeStatus === "open"
+                ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                : "bg-gray-600 text-white hover:bg-gray-700"
+            }`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
-        <img
-          src={logo1.src}
-          alt="Seblak Mamah Zahwa"
-          className="h-8 sm:h-10 md:h-12 object-contain"
-        />
-        <div className="relative">
-          <div className="w-8 h-8 rounded-full border border-red-400 bg-red-600 flex items-center justify-center text-xs font-bold shadow-inner">
-            P
+            {storeStatus === "open" ? "BUKA" : "TUTUP"}
+          </button>
+          <div className="relative">
+            <div className="w-8 h-8 rounded-full border border-red-400 bg-red-600 flex items-center justify-center text-xs font-bold shadow-inner">
+              P
+            </div>
+            {pendingCount + processingCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-red-800">
+                {pendingCount + processingCount}
+              </span>
+            )}
           </div>
-          {pendingCount + processingCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-red-800">
-              {pendingCount + processingCount}
-            </span>
-          )}
         </div>
       </header>
 
@@ -891,7 +929,7 @@ export default function SellerDashboard() {
                               key={btn.action}
                               onClick={() => {
                                 if (btn.action === "decline") {
-                                  setDeclineReason('');
+                                  setDeclineReason("");
                                   setConfirmDecline(order.id);
                                 } else {
                                   handleOrderAction(order.id, btn.action);
@@ -1976,7 +2014,7 @@ export default function SellerDashboard() {
             </p>
             <textarea
               value={declineReason}
-              onChange={e => setDeclineReason(e.target.value)}
+              onChange={(e) => setDeclineReason(e.target.value)}
               placeholder="Alasan penolakan (opsional)"
               rows={2}
               className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-xs font-semibold outline-none focus:bg-white focus:border-red-500 transition-all text-gray-700 resize-none"
@@ -1992,7 +2030,9 @@ export default function SellerDashboard() {
                 onClick={() => {
                   const id = confirmDecline;
                   setConfirmDecline(null);
-                  const extra = declineReason.trim() ? { declineReason: declineReason.trim() } : undefined;
+                  const extra = declineReason.trim()
+                    ? { declineReason: declineReason.trim() }
+                    : undefined;
                   handleOrderAction(id, "decline", extra);
                 }}
                 className="flex-1 bg-red-700 text-white font-black py-3 rounded-xl text-xs active:scale-95 transition-all"

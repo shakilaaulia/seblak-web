@@ -82,6 +82,10 @@ export default function MenuPage() {
   const [variantQty, setVariantQty] = useState(1);
   const [variantSelections, setVariantSelections] = useState<SelectedVariant[]>([]);
 
+  // Store status
+  const [storeOpen, setStoreOpen] = useState(true);
+  const [storeLoading, setStoreLoading] = useState(true);
+
   // Cart overlay
   const [showCartOverlay, setShowCartOverlay] = useState(false);
 
@@ -136,6 +140,10 @@ export default function MenuPage() {
     }
     fetchProducts();
     fetchToppings();
+    fetch('/api/restaurant')
+      .then(r => r.json())
+      .then(data => { setStoreOpen(data.isOpen); setStoreLoading(false); })
+      .catch(() => setStoreLoading(false));
   }, [fetchProducts, fetchToppings]);
 
   const saveCart = (newCart: CartItem[]) => {
@@ -360,6 +368,13 @@ export default function MenuPage() {
         })}
       </div>
 
+      {/* Store Closed Banner */}
+      {!storeLoading && !storeOpen && (
+        <div className="bg-amber-500 text-white text-center py-3 px-4 text-xs font-bold">
+          🕐 Warung sedang tutup. Silakan kembali saat jam operasional.
+        </div>
+      )}
+
       {/* Product List */}
       <main className="flex-1 px-4 py-5 space-y-6 overflow-y-auto pb-32">
         {loadingProducts ? (
@@ -407,20 +422,36 @@ export default function MenuPage() {
                         <div className="flex items-center space-x-3.5 bg-gray-50 border border-gray-150 rounded-full px-3 py-1.5 shadow-inner">
                           <button onClick={() => handleUpdateCartItemQty(hasVariantInCart.id, -1)} className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90">-</button>
                           <span className="text-xs font-black text-gray-800">{hasVariantInCart.quantity}</span>
-                          <button onClick={() => openVariantModal(item)} className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90">+</button>
+                          <button onClick={() => openVariantModal(item)} disabled={!storeOpen} className={`rounded-full text-xs font-extrabold active:scale-90 ${
+                            !storeOpen
+                              ? 'w-5 h-5 bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'w-5 h-5 bg-red-600 text-white'
+                          }`}>+</button>
                         </div>
                       ) : (
-                        <button onClick={() => openVariantModal(item)} className="w-7.5 h-7.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all text-lg">+</button>
+                        <button onClick={() => openVariantModal(item)} disabled={!storeOpen} className={`font-black rounded-xl flex items-center justify-center shadow transition-all text-lg ${
+                          !storeOpen
+                            ? 'w-7.5 h-7.5 bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'w-7.5 h-7.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-red-600/20'
+                        }`}>+</button>
                       )
                     ) : (
                       simpleCount > 0 ? (
                         <div className="flex items-center space-x-3.5 bg-gray-50 border border-gray-150 rounded-full px-3 py-1.5 shadow-inner">
                           <button onClick={() => handleDecreaseSimpleItem(item)} className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90">-</button>
                           <span className="text-xs font-black text-gray-800">{simpleCount}</span>
-                          <button onClick={() => handleAddSimpleItem(item)} className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90">+</button>
+                          <button onClick={() => handleAddSimpleItem(item)} disabled={!storeOpen} className={`rounded-full text-xs font-extrabold active:scale-90 ${
+                            !storeOpen
+                              ? 'w-5 h-5 bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'w-5 h-5 bg-red-600 text-white'
+                          }`}>+</button>
                         </div>
                       ) : (
-                        <button onClick={() => handleAddSimpleItem(item)} className="w-7.5 h-7.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all text-lg">+</button>
+                        <button onClick={() => handleAddSimpleItem(item)} disabled={!storeOpen} className={`font-black rounded-xl flex items-center justify-center shadow transition-all text-lg ${
+                          !storeOpen
+                            ? 'w-7.5 h-7.5 bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'w-7.5 h-7.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-red-600/20'
+                        }`}>+</button>
                       )
                     )}
                   </div>
@@ -431,7 +462,7 @@ export default function MenuPage() {
         )}
       </main>
 
-      {/* Cart Bar */}
+        {/* Cart Bar */}
       {cart.length > 0 && (
         <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100/80 shadow-2xl px-5 py-4 flex items-center justify-between z-40">
           <div onClick={() => setShowCartOverlay(true)} className="flex items-center space-x-3.5 cursor-pointer hover:opacity-90 active:scale-98 transition-all">
@@ -448,8 +479,16 @@ export default function MenuPage() {
               <p className="text-md font-black text-red-600 mt-0.5">{formatPrice(calculateCartTotal())}</p>
             </div>
           </div>
-          <button onClick={() => router.push('/cart')} className="bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black py-3.5 px-7 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md shadow-red-600/10 transition-all">
-            <span>Checkout</span>
+          <button
+            onClick={() => router.push('/cart')}
+            disabled={!storeOpen}
+            className={`font-black py-3.5 px-7 rounded-2xl flex items-center space-x-2 text-xs uppercase tracking-widest shadow-md transition-all ${
+              !storeOpen
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-red-600 hover:bg-red-700 active:scale-98 text-white shadow-red-600/10'
+            }`}
+          >
+            <span>{!storeOpen ? 'Toko Tutup' : 'Checkout'}</span>
           </button>
         </div>
       )}

@@ -13,18 +13,20 @@ interface TrackOrder {
   createdAt: string;
 }
 
-const ONGOING_STATUSES = ['PENDING', 'PROCESSING', 'READY'];
+const TRACKABLE_STATUSES = ['PENDING', 'PROCESSING', 'READY', 'DECLINED'];
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Menunggu Verifikasi',
   PROCESSING: 'Sedang Dimasak',
   READY: 'Siap Diambil',
+  DECLINED: 'Ditolak',
 };
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'text-red-600 bg-red-50',
   PROCESSING: 'text-amber-600 bg-amber-50',
   READY: 'text-emerald-600 bg-emerald-50',
+  DECLINED: 'text-gray-500 bg-gray-100',
 };
 
 export default function HomePage() {
@@ -47,7 +49,7 @@ export default function HomePage() {
       const res = await fetch(`/api/orders?search=${encodeURIComponent(searchQuery)}`);
       if (res.ok) {
         const orders = await res.json();
-        const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
+        const ongoing = orders.filter((o: TrackOrder) => TRACKABLE_STATUSES.includes(o.status));
         if (ongoing.length === 0) {
           setTrackError("Tidak ada pesanan aktif ditemukan. Periksa kembali nomor WhatsApp.");
         } else {
@@ -72,7 +74,7 @@ export default function HomePage() {
       const res = await fetch(`/api/orders?search=${encodeURIComponent(searchQuery)}`);
       if (res.ok) {
         const orders = await res.json();
-        const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
+        const ongoing = orders.filter((o: TrackOrder) => TRACKABLE_STATUSES.includes(o.status));
         setSearchResults(ongoing.length > 0 ? ongoing : null);
         if (ongoing.length === 0) {
           setTrackError("Semua pesanan sudah selesai.");

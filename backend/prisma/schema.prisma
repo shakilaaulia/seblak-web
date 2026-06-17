@@ -3,69 +3,85 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  CUSTOMER
-  SELLER
-}
-
-enum OrderStatus {
-  PENDING
-  COOKING
-  READY
-}
-
-model User {
-  id          Int      @id @default(autoincrement())
-  name        String?
-  phoneNumber String   @unique
-  role        Role
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  price       Int      @default(0)
+  stock       Int      @default(0)
+  imageUrl    String   @default("")
+  categoryId  String   @default("makanan")
+  isActive    Boolean  @default(true)
+  variants    Json?
+  recipe      Json?
   createdAt   DateTime @default(now())
-  orders      Order[]
-
-  @@index([phoneNumber])
-}
-
-model Topping {
-  id          Int       @id @default(autoincrement())
-  toppingName String
-  price       Decimal   @db.Decimal(10, 2)
-  isReady     Boolean   @default(true)
-
-  orderDetails OrderDetail[]
-
-  @@index([toppingName])
+  updatedAt   DateTime @updatedAt
 }
 
 model Order {
-  id          Int          @id @default(autoincrement())
-  user        User         @relation(fields: [userId], references: [id])
-  userId      Int
-  queueNumber String       @unique
-  totalPrice  Decimal      @db.Decimal(10, 2)
-  spiceLevel  Int
-  soupType    String
-  status      OrderStatus  @default(PENDING)
-  createdAt   DateTime     @default(now())
-
-  orderDetails OrderDetail[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
+  id                  String     @id @default(cuid())
+  orderNumber         String     @unique
+  customerName        String
+  customerWhatsapp    String     @default("")
+  notes               String     @default("")
+  totalPrice          Int        @default(0)
+  paymentProofUrl     String     @default("")
+  paymentProofFileName String    @default("")
+  status              String     @default("PENDING")
+  declineReason       String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  items               OrderItem[]
 }
 
-model OrderDetail {
-  id        Int     @id @default(autoincrement())
-  order     Order   @relation(fields: [orderId], references: [id])
-  orderId   Int
-  topping   Topping @relation(fields: [toppingId], references: [id])
-  toppingId Int
-  quantity  Int
+model OrderItem {
+  id               String @id @default(cuid())
+  order            Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId          String
+  productId        String @default("")
+  productName      String @default("")
+  quantity         Int    @default(1)
+  price            Int    @default(0)
+  subtotal         Int    @default(0)
+  customization    Json?
+  selectedVariants Json?
+}
 
-  @@index([orderId])
-  @@index([toppingId])
+model Ingredient {
+  id         String @id @default(cuid())
+  name       String
+  remaining  Int    @default(0)
+  unit       String @default("pcs")
+  minWarning Int    @default(5)
+}
+
+model Topping {
+  id         String @id @default(cuid())
+  name       String
+  price      Int    @default(0)
+  remaining  Int    @default(0)
+  minWarning Int    @default(5)
+  unit       String @default("porsi")
+}
+
+model RestaurantSetting {
+  id      String  @id @default("rest-1")
+  name    String  @default("Seblak Mamah Zahwa")
+  address String  @default("")
+  phone   String  @default("")
+  logoUrl String  @default("")
+  isOpen  Boolean @default(true)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  orderId   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
