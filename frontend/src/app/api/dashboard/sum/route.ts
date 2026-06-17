@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
 
 export async function GET() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('admin_session');
+  if (session?.value !== 'true') {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());

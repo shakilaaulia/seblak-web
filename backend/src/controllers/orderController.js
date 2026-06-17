@@ -78,6 +78,29 @@ exports.createOrder = async (req, res, next) => {
   }
 };
 
+exports.trackOrder = async (req, res, next) => {
+  try {
+    const { search } = req.query;
+    if (!search) {
+      return res.status(400).json({ message: 'Parameter pencarian diperlukan' });
+    }
+    
+    const orders = await prisma.order.findMany({
+      where: {
+        OR: [
+          { orderNumber: { contains: search } },
+          { customerWhatsapp: { contains: search } }
+        ]
+      },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getOrderById = async (req, res, next) => {
   try {
     const { id } = req.params;

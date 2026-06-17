@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('admin_session');
+  if (session?.value !== 'true') {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     const { action, declineReason } = await req.json();

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { generateQueueNumber } from '@/lib/queue';
 import { emitNewOrder } from '@/lib/sse';
@@ -15,6 +16,12 @@ type OrderInputItem = {
 };
 
 export async function GET(req: Request) {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('admin_session');
+  if (session?.value !== 'true') {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') || 'all';

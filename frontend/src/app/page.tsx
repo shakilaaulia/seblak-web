@@ -44,7 +44,7 @@ export default function HomePage() {
     setSearchResults(null);
 
     try {
-      const res = await fetch(`/api/orders?search=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`/api/orders/track?search=${encodeURIComponent(searchQuery)}`);
       if (res.ok) {
         const orders = await res.json();
         const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
@@ -69,7 +69,7 @@ export default function HomePage() {
   const pollOrders = useRef(async () => {
     if (!searchQuery.trim() || !showTrack) return;
     try {
-      const res = await fetch(`/api/orders?search=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`/api/orders/track?search=${encodeURIComponent(searchQuery)}`);
       if (res.ok) {
         const orders = await res.json();
         const ongoing = orders.filter((o: TrackOrder) => ONGOING_STATUSES.includes(o.status));
