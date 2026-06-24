@@ -11,6 +11,7 @@ function OrderStatusContent() {
 
   const [order, setOrder] = useState<(Order & { items: OrderItem[] }) | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [storeWhatsapp, setStoreWhatsapp] = useState('');
 
   const statusIndex = order
     ? order.status === 'PENDING' ? 0
@@ -34,6 +35,10 @@ function OrderStatusContent() {
   }, []);
 
   useEffect(() => {
+    fetch('/api/restaurant').then(r => r.json()).then(data => {
+      const phone = data.phone || data.whatsapp || '';
+      if (phone) setStoreWhatsapp(phone.replace(/[^0-9]/g, '').replace(/^0/, '62'));
+    }).catch(() => {});
     if (orderId) {
       loadOrder(orderId);
     } else {
@@ -104,7 +109,7 @@ function OrderStatusContent() {
 
         <button
           onClick={() => {
-            window.open(`https://wa.me/6281234567890?text=Halo%20Mamah%20Zahwa%20saya%20ingin%20tanya%20status%20pesanan%20${encodeURIComponent(currentOrderId)}`, '_blank');
+            window.open(`https://wa.me/${storeWhatsapp}?text=Halo%20Mamah%20Zahwa%20saya%20ingin%20tanya%20status%20pesanan%20${encodeURIComponent(currentOrderId)}`, '_blank');
           }}
           className="w-6 h-6 rounded-full bg-red-700 flex items-center justify-center text-white text-xs font-black hover:opacity-90 shadow-sm"
         >

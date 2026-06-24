@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import logo1 from "../../../assets/Logo 1.png";
 import type { OrderStatus, Product } from "@/lib/types";
 
 interface DashboardOrder {
@@ -21,6 +19,14 @@ interface DashboardOrder {
     quantity: number;
     price: number;
     subtotal: number;
+    customization?: {
+      spiciness: string;
+      soup: string;
+      flavors: string[];
+      toppings: { name: string; quantity: number }[];
+      notes: string;
+    };
+    selectedVariants?: { name: string; price: number; quantity: number }[];
   }[];
 }
 
@@ -84,18 +90,6 @@ const STATUS_ACTIONS: Record<
 };
 
 export default function SellerDashboard() {
-  const router = useRouter();
-  const [authenticated, setAuthenticated] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/verify")
-      .then((res) => {
-        if (res.ok) setAuthenticated(true);
-        else router.replace("/admin");
-      })
-      .catch(() => router.replace("/admin"));
-  }, [router]);
-
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error" | "info";
@@ -116,32 +110,73 @@ export default function SellerDashboard() {
     completedToday: 0,
     totalRevenueToday: 0,
   });
-  const [isClient, setIsClient] = useState(false);
+
   const [activeTab, setActiveTab] = useState<TabId>("orders");
   const [loading, setLoading] = useState(true);
+
+  // Store status
+  const [storeStatus, setStoreStatus] = useState<"open" | "closed">("open");
+  const [storeStatusLoading, setStoreStatusLoading] = useState(false);
+
+  const fetchStoreStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/restaurant");
+      if (res.ok) {
+        const data = await res.json();
+        setStoreStatus(data.isOpen ? "open" : "closed");
+        setStoreSettings(prev => ({
+          ...prev,
+          storeName: data.name || prev.storeName,
+          whatsapp: data.phone || prev.whatsapp,
+          address: data.address || prev.address,
+        }));
+      }
+    } catch {}
+  }, []);
+
+  const handleToggleStatus = async () => {
+    const newStatus = storeStatus === "open" ? "closed" : "open";
+    setStoreStatusLoading(true);
+    try {
+      const res = await fetch("/api/restaurant", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOpen: newStatus === "open" }),
+      });
+      if (res.ok) {
+        setStoreStatus(newStatus);
+        showToast(
+          `toko: ${newStatus === "open" ? "Buka" : "Tutup"}`,
+          "success",
+        );
+      }
+    } catch {
+      showToast("Gagal mengubah status toko", "error");
+    } finally {
+      setStoreStatusLoading(false);
+    }
+  };
 
   // Sound effect for new orders
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
 
-  // Load and decode sound file, create AudioContext once
   useEffect(() => {
-    const init = async () => {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioCtxRef.current = ctx;
-        const res = await fetch('/sounds/order-notification.mp3');
-        const buf = await res.arrayBuffer();
-        const decoded = await ctx.decodeAudioData(buf);
-        audioBufferRef.current = decoded;
-      } catch {}
-    };
-    init();
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioCtxRef.current = ctx;
+    fetch("/sounds/order-notification.mp3")
+      .then((r) => r.arrayBuffer())
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((d) => {
+        audioBufferRef.current = d;
+      })
+      .catch(() => {});
   }, []);
 
   const resumeAudio = useCallback(() => {
     const ctx = audioCtxRef.current;
-    if (ctx && ctx.state === 'suspended') {
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
       ctx.resume().catch(() => {});
     }
   }, []);
@@ -150,11 +185,11 @@ export default function SellerDashboard() {
     const ctx = audioCtxRef.current;
     const buf = audioBufferRef.current;
     if (!ctx || !buf) return;
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === "suspended") ctx.resume();
     const source = ctx.createBufferSource();
     source.buffer = buf;
     const gain = ctx.createGain();
-    gain.gain.value = 1;
+    gain.gain.value = 0.5;
     source.connect(gain);
     gain.connect(ctx.destination);
     source.start(0);
@@ -193,25 +228,42 @@ export default function SellerDashboard() {
   }, []);
 
   useEffect(() => {
-    setIsClient(true);
-    Promise.all([fetchOrders(), fetchSummary()]).finally(() =>
-      setLoading(false),
+    Promise.all([fetchOrders(), fetchSummary(), fetchStoreStatus()]).finally(
+      () => setLoading(false),
     );
-  }, [fetchOrders, fetchSummary]);
+  }, [fetchOrders, fetchSummary, fetchStoreStatus]);
 
   // SSE for real-time new order notification + sound
   useEffect(() => {
-    const es = new EventSource('/api/orders/events');
-    es.addEventListener('new-order', () => {
+    const es = new EventSource("/api/orders/events");
+    es.addEventListener("new-order", () => {
       fetchOrders();
       fetchSummary();
       playNewOrderSound();
     });
-    es.onerror = () => {};
+    es.addEventListener("connected", () => {
+      console.log("SSE connected");
+    });
+    es.onerror = () => {
+      console.warn("SSE disconnected, will retry");
+    };
     return () => es.close();
   }, [fetchOrders, fetchSummary, playNewOrderSound]);
 
-  const handleOrderAction = async (orderId: string, action: string, extra?: Record<string, string>) => {
+  // Fallback polling every 30s in case SSE drops
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchOrders();
+      fetchSummary();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [fetchOrders, fetchSummary]);
+
+  const handleOrderAction = async (
+    orderId: string,
+    action: string,
+    extra?: Record<string, string>,
+  ) => {
     try {
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
@@ -381,7 +433,7 @@ export default function SellerDashboard() {
   // --- SETTINGS STATE ---
   const [storeSettings, setStoreSettings] = useState({
     storeName: "Seblak Mamah Zahwa",
-    whatsapp: "6281234567890",
+    whatsapp: "+6285943054626",
     address: "Jl. Pedas Manis No. 10, Bandung",
     openHour: "09:00",
     closeHour: "21:00",
@@ -416,7 +468,8 @@ export default function SellerDashboard() {
   const [newIngredientName, setNewIngredientName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [confirmDecline, setConfirmDecline] = useState<string | null>(null);
-  const [declineReason, setDeclineReason] = useState('');
+  const [declineReason, setDeclineReason] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
 
   const fetchMenuProducts = useCallback(async () => {
     try {
@@ -653,10 +706,11 @@ export default function SellerDashboard() {
     (o) => o.status === "PROCESSING",
   ).length;
 
-  if (!isClient || !authenticated) return null;
-
   return (
-    <div className="flex-1 flex flex-col bg-slate-50 min-h-screen pb-24 relative select-none" onClick={resumeAudio}>
+    <div
+      className="flex-1 flex flex-col bg-slate-50 min-h-screen pb-24 relative select-none"
+      onClick={resumeAudio}
+    >
       {toast && (
         <div
           className={`fixed top-5 inset-x-4 z-50 text-xs text-center py-3.5 px-5 rounded-xl shadow-2xl font-bold transition-all animate-bounce ${
@@ -673,38 +727,31 @@ export default function SellerDashboard() {
 
       {/* Header */}
       <header className="sticky top-0 bg-red-800 text-white flex items-center justify-between px-4 py-3.5 shadow-md z-30">
-        <button
-          onClick={() => router.push("/")}
-          className="hover:opacity-80 transition-opacity"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <span className="text-white font-bold text-lg tracking-wide">
+          Warung Seblak Mamah Zahwa
+        </span>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleToggleStatus}
+            disabled={storeStatusLoading}
+            className={`px-3 py-1.5 rounded-full text-xs font-black transition-all ${
+              storeStatus === "open"
+                ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                : "bg-gray-600 text-white hover:bg-gray-700"
+            }`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
-        <img
-          src={logo1.src}
-          alt="Seblak Mamah Zahwa"
-          className="h-8 sm:h-10 md:h-12 object-contain"
-        />
-        <div className="relative">
-          <div className="w-8 h-8 rounded-full border border-red-400 bg-red-600 flex items-center justify-center text-xs font-bold shadow-inner">
-            P
+            {storeStatus === "open" ? "BUKA" : "TUTUP"}
+          </button>
+          <div className="relative">
+            <div className="w-8 h-8 rounded-full border border-red-400 bg-red-600 flex items-center justify-center text-xs font-bold shadow-inner">
+              P
+            </div>
+            {pendingCount + processingCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-red-800">
+                {pendingCount + processingCount}
+              </span>
+            )}
           </div>
-          {pendingCount + processingCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-red-800">
-              {pendingCount + processingCount}
-            </span>
-          )}
         </div>
       </header>
 
@@ -851,6 +898,15 @@ export default function SellerDashboard() {
                         </div>
                       )}
 
+                      {/* Detail button */}
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                      >
+                        <span>📋</span>
+                        <span>Lihat Detail Pesanan</span>
+                      </button>
+
                       {/* Payment Proof for PENDING */}
                       {order.status === "PENDING" && order.paymentProofUrl && (
                         <div className="bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
@@ -891,7 +947,7 @@ export default function SellerDashboard() {
                               key={btn.action}
                               onClick={() => {
                                 if (btn.action === "decline") {
-                                  setDeclineReason('');
+                                  setDeclineReason("");
                                   setConfirmDecline(order.id);
                                 } else {
                                   handleOrderAction(order.id, btn.action);
@@ -916,7 +972,7 @@ export default function SellerDashboard() {
                         order.customerWhatsapp && (
                           <div className="pt-1 border-t border-gray-50">
                             <a
-                              href={`https://wa.me/${order.customerWhatsapp.replace(/[^0-9]/g, "")}?text=Halo%20${encodeURIComponent(order.customerName)}%2C%20terima%20kasih%20sudah%20memesan%20di%20Seblak%20Mamah%20Zahwa%20${order.orderNumber}`}
+                              href={`https://wa.me/${order.customerWhatsapp.replace(/[^0-9]/g, "").replace(/^0/, "62")}?text=Halo%20${encodeURIComponent(order.customerName)}%2C%20terima%20kasih%20sudah%20memesan%20di%20Seblak%20Mamah%20Zahwa%20${order.orderNumber}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center justify-center space-x-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs active:scale-[0.98] transition-all shadow-sm"
@@ -1368,9 +1424,22 @@ export default function SellerDashboard() {
                 </div>
               </div>
               <button
-                onClick={() =>
-                  showToast("Pengaturan berhasil disimpan", "success")
-                }
+                onClick={async () => {
+                  try {
+                    await fetch("/api/restaurant", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: storeSettings.storeName,
+                        phone: storeSettings.whatsapp,
+                        address: storeSettings.address,
+                      }),
+                    });
+                    showToast("Pengaturan berhasil disimpan", "success");
+                  } catch {
+                    showToast("Gagal menyimpan pengaturan", "error");
+                  }
+                }}
                 className="w-full bg-red-700 hover:bg-red-800 text-white font-black py-3.5 px-6 rounded-2xl text-xs tracking-wider active:scale-[0.98] transition-all"
               >
                 Simpan Pengaturan
@@ -1976,7 +2045,7 @@ export default function SellerDashboard() {
             </p>
             <textarea
               value={declineReason}
-              onChange={e => setDeclineReason(e.target.value)}
+              onChange={(e) => setDeclineReason(e.target.value)}
               placeholder="Alasan penolakan (opsional)"
               rows={2}
               className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-xs font-semibold outline-none focus:bg-white focus:border-red-500 transition-all text-gray-700 resize-none"
@@ -1992,13 +2061,199 @@ export default function SellerDashboard() {
                 onClick={() => {
                   const id = confirmDecline;
                   setConfirmDecline(null);
-                  const extra = declineReason.trim() ? { declineReason: declineReason.trim() } : undefined;
+                  const extra = declineReason.trim()
+                    ? { declineReason: declineReason.trim() }
+                    : undefined;
                   handleOrderAction(id, "decline", extra);
                 }}
                 className="flex-1 bg-red-700 text-white font-black py-3 rounded-xl text-xs active:scale-95 transition-all"
               >
                 Ya, Tolak
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Detail Modal */}
+      {selectedOrder && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end"
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div className="flex-1" />
+          <div
+            className="bg-white rounded-t-[32px] shadow-2xl flex flex-col max-h-[80vh] w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-base font-black text-gray-900">
+                Detail Pesanan
+              </h2>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {/* Order header */}
+              <div className="bg-red-50 rounded-2xl p-4 border border-red-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                      ID Pesanan
+                    </p>
+                    <h3 className="text-lg font-black text-red-700 mt-0.5">
+                      {selectedOrder.orderNumber}
+                    </h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                      Waktu
+                    </p>
+                    <p className="text-sm font-bold text-gray-800 mt-0.5">
+                      {new Date(selectedOrder.createdAt).toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer info */}
+              <div className="flex items-center space-x-3 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center text-sm font-black">
+                  {selectedOrder.customerName.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-black text-gray-900">
+                    {selectedOrder.customerName}
+                  </p>
+                  {selectedOrder.customerWhatsapp && (
+                    <p className="text-[10px] font-bold text-gray-400 mt-0.5">
+                      WA: {selectedOrder.customerWhatsapp}
+                    </p>
+                  )}
+                </div>
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${selectedOrder.status === "PENDING" ? "bg-rose-50 text-red-600" : selectedOrder.status === "PROCESSING" ? "bg-amber-50 text-amber-600" : selectedOrder.status === "READY" ? "bg-emerald-50 text-emerald-600" : selectedOrder.status === "COMPLETED" ? "bg-gray-50 text-gray-600" : "bg-gray-100 text-gray-500"}`}>
+                  {selectedOrder.status === "PENDING" ? "Menunggu Verifikasi" : selectedOrder.status === "PROCESSING" ? "Sedang Dimasak" : selectedOrder.status === "READY" ? "Siap Diambil" : selectedOrder.status === "COMPLETED" ? "Selesai" : "Ditolak"}
+                </span>
+              </div>
+
+              {/* Items */}
+              {selectedOrder.items && selectedOrder.items.length > 0 && (
+                <div className="bg-white border border-gray-100 rounded-2xl p-2 shadow-sm">
+                  <div className="px-3 py-2 border-b border-gray-50">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                      Pesanan ({selectedOrder.items.length} item)
+                    </p>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {selectedOrder.items.map((item, i) => (
+                      <div key={i} className="px-3 py-3.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 pr-4">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-extrabold text-gray-900 text-sm">
+                                {item.productName}
+                              </span>
+                              <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                                {item.quantity}x
+                              </span>
+                            </div>
+                            {/* Customization */}
+                            {item.customization && (
+                              <div className="mt-1.5 space-y-0.5">
+                                {item.customization.spiciness && (
+                                  <p className="text-[9px] font-semibold text-gray-500">
+                                    Pedas: {item.customization.spiciness}
+                                  </p>
+                                )}
+                                {item.customization.soup && (
+                                  <p className="text-[9px] font-semibold text-gray-500">
+                                    Kuah: {item.customization.soup}
+                                  </p>
+                                )}
+                                {item.customization.flavors && item.customization.flavors.length > 0 && (
+                                  <p className="text-[9px] font-semibold text-gray-500">
+                                    Rasa: {item.customization.flavors.join(", ")}
+                                  </p>
+                                )}
+                                {item.customization.toppings && item.customization.toppings.length > 0 && (
+                                  <p className="text-[9px] font-semibold text-gray-500">
+                                    Topping: {item.customization.toppings.map(t => `${t.name}${t.quantity > 1 ? ` ×${t.quantity}` : ""}`).join(", ")}
+                                  </p>
+                                )}
+                                {item.customization.notes && (
+                                  <p className="text-[9px] font-semibold text-gray-500">
+                                    Catatan: {item.customization.notes}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            {/* Variants */}
+                            {item.selectedVariants && item.selectedVariants.length > 0 && (
+                              <div className="mt-1 space-y-0.5">
+                                {item.selectedVariants.map((v, vi) => (
+                                  <p key={vi} className="text-[9px] font-semibold text-gray-500">
+                                    Varian: {v.name} {v.quantity > 1 && `×${v.quantity}`} (+Rp{v.price.toLocaleString("id-ID")})
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <span className="font-black text-red-600 text-xs shrink-0">
+                            Rp {item.subtotal.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {selectedOrder.notes && (
+                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-start space-x-2.5">
+                    <span className="text-sm">📝</span>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                        Catatan Pesanan
+                      </p>
+                      <p className="text-xs font-semibold text-gray-700 mt-1">
+                        {selectedOrder.notes}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Proof */}
+              {selectedOrder.paymentProofUrl && (
+                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
+                    Bukti Pembayaran
+                  </p>
+                  <div className="rounded-xl overflow-hidden border border-gray-200">
+                    <img
+                      src={selectedOrder.paymentProofUrl}
+                      alt="Bukti Transfer"
+                      className="w-full h-48 object-contain bg-gray-50"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="bg-red-700 rounded-2xl p-5 text-white flex items-center justify-between shadow-lg">
+                <p className="text-sm font-black uppercase tracking-wider">
+                  Total Pembayaran
+                </p>
+                <p className="text-xl font-black">
+                  Rp {selectedOrder.totalPrice.toLocaleString("id-ID")}
+                </p>
+              </div>
             </div>
           </div>
         </div>

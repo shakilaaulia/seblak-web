@@ -46,7 +46,7 @@ const FLAVOR_OPTIONS = ['Gurih', 'Asin', 'Manis'];
 
 interface Props {
   products: ApiProduct[];
-  toppingOptions: { name: string; price: number }[];
+  toppingOptions: { name: string; price: number; remaining: number }[];
   customization: Customization;
   customQty: number;
   setCustomQty: React.Dispatch<React.SetStateAction<number>>;
@@ -171,20 +171,26 @@ export default function SeblakForm({
           {toppingOptions.map((tOpt) => {
             const selected = customization.toppings.find(t => t.name === tOpt.name);
             const qty = selected?.quantity || 0;
+            const soldOut = tOpt.remaining <= 0;
+            const maxReached = qty >= tOpt.remaining;
             return (
               <div key={tOpt.name} className="flex items-center justify-between px-4 py-3.5 border-b border-gray-50 last:border-none">
                 <div>
-                  <p className={`text-xs font-bold ${qty > 0 ? 'text-red-700' : 'text-gray-800'}`}>{tOpt.name}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">{formatPrice(tOpt.price)}</p>
+                  <p className={`text-xs font-bold ${qty > 0 ? 'text-red-700' : soldOut ? 'text-gray-400' : 'text-gray-800'}`}>
+                    {tOpt.name} {soldOut && <span className="text-[9px] text-red-500 font-bold">(Habis)</span>}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">{formatPrice(tOpt.price)} {!soldOut && <span className="text-gray-300">· Sisa {tOpt.remaining}</span>}</p>
                 </div>
                 {qty > 0 ? (
                   <div className="flex items-center space-x-2.5 bg-gray-50 border border-gray-150 rounded-full px-2.5 py-1 shadow-inner">
                     <button onClick={() => handleToppingQty(tOpt.name, -1)} className="w-5 h-5 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-500 font-extrabold text-xs active:scale-90">-</button>
                     <span className="text-xs font-black text-gray-800 min-w-[16px] text-center">{qty}</span>
-                    <button onClick={() => handleToppingQty(tOpt.name, 1)} className="w-5 h-5 flex items-center justify-center bg-red-600 rounded-full text-white font-extrabold text-xs active:scale-90">+</button>
+                    <button onClick={() => !maxReached && handleToppingQty(tOpt.name, 1)} disabled={maxReached} className={`w-5 h-5 flex items-center justify-center rounded-full text-white font-extrabold text-xs active:scale-90 ${maxReached ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600'}`}>+</button>
                   </div>
                 ) : (
-                  <button onClick={() => handleToppingQty(tOpt.name, 1)} className="w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all">+</button>
+                  !soldOut && (
+                    <button onClick={() => handleToppingQty(tOpt.name, 1)} className="w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black rounded-xl flex items-center justify-center shadow shadow-red-600/20 transition-all">+</button>
+                  )
                 )}
               </div>
             );
